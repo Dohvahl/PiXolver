@@ -2,6 +2,10 @@
 
 [ext_resource type="Script" uid="uid://b531bxas7rtak" path="res://grid.gd" id="1_ebq2e"]
 
+[sub_resource type="SystemFont" id="SystemFont_ebq2e"]
+font_names = PackedStringArray("DejaVu Sans Mono")
+font_weight = 800
+
 [node name="Grid" type="Control" unique_id=892591740]
 layout_mode = 3
 anchors_preset = 15
@@ -16,10 +20,18 @@ metadata/_edit_group_ = true
 
 [node name="Message" type="Label" parent="." unique_id=939463974]
 layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -0.5
+offset_top = -9.5
+offset_right = 0.5
+offset_bottom = 9.5
 grow_horizontal = 2
 grow_vertical = 2
+theme_override_colors/font_color = Color(0, 0, 0.49411765, 1)
+theme_override_fonts/font = SubResource("SystemFont_ebq2e")
 horizontal_alignment = 1
 vertical_alignment = 1
