@@ -13,6 +13,7 @@ func _init(init_grid_size: int, initial_state: String) -> void:
 	
 	# parse the initial state string and set the grid accordingly
 	
+#region Set Initial State
 	# setup needed variables
 	var count := 0
 	var row := 0
@@ -26,10 +27,9 @@ func _init(init_grid_size: int, initial_state: String) -> void:
 			var next_char := row_state[index]
 			if next_char.is_valid_int():
 				# this is a number with either one or two digits, so get the full number
-				var digits_check := 0
-				while row_state[index + digits_check].is_valid_int(): digits_check += 1
-				count = int(row_state.substr(index, digits_check))
-				index += digits_check
+				var result := _get_count(index, row_state)
+				count = result[0]
+				index += result[1]
 			else:
 				# row_state[index] should be either a '-' or an 'x'
 				if next_char == '-': # empty cell(s)
@@ -45,6 +45,7 @@ func _init(init_grid_size: int, initial_state: String) -> void:
 				count = 0
 				index += 1
 		row += 1
+#endregion
 
 func is_cell_filled(cell_index: int) -> bool:
 	assert(cell_index >= 0 and cell_index < grid_size * grid_size, "Cell Index outside of grid bounds: %d" % cell_index)
@@ -72,5 +73,11 @@ func is_valid_cell_index(cell_index: int) -> bool:
 		return false
 		
 	return cell_index < grid_size * grid_size
-	
-# "Private" Functions
+
+# returns an array where:
+# 	result[0] -> count
+# 	result[1] -> number of digits in count
+func _get_count(starting_index: int, row_state: String) -> Array[int]:
+	var digits_check := 0
+	while row_state[starting_index + digits_check].is_valid_int(): digits_check += 1
+	return [int(row_state.substr(starting_index, digits_check)), digits_check]
