@@ -3,7 +3,6 @@
 [ext_resource type="Script" uid="uid://b531bxas7rtak" path="res://grid.gd" id="1_ebq2e"]
 
 [node name="Grid" type="Control" unique_id=892591740]
-clip_contents = true
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -12,6 +11,5 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_ebq2e")
 grid_size = 3
+initial_state = "2x1-/1x1-1x/1-1x1-"
 metadata/_edit_group_ = true
-
-[connection signal="size_changed" from="." to="." method="_on_size_changed"]

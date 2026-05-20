@@ -5,12 +5,46 @@ var cells: Array[bool]
 var row_clues: Dictionary[int, Array]
 var col_clues: Dictionary[int, Array]
 
-func _init(init_grid_size: int, init_row_clues: Dictionary[int, Array], init_col_clues: Dictionary[int, Array]) -> void:
+func _init(init_grid_size: int, initial_state: String) -> void:
 	grid_size = init_grid_size
 	
 	cells = []
 	cells.resize(grid_size * grid_size)
-	cells.fill(0) # Puzzle starts as empty
+	
+	# parse the initial state string and set the grid accordingly
+	
+	# setup needed variables
+	var count := 0
+	var row := 0
+	
+	# iterate over each row state
+	var row_states := initial_state.split("/")
+	for row_state in row_states:
+		var index := 0
+		var current_cell := 0
+		while index < row_state.length():
+			var next_char := row_state[index]
+			if next_char.is_valid_int():
+				# this is a number with either one or two digits, so get the full number
+				var digits_check := 0
+				while row_state[index + digits_check].is_valid_int(): digits_check += 1
+				count = int(row_state.substr(index, digits_check))
+				index += digits_check
+			else:
+				# row_state[index] should be either a '-' or an 'x'
+				if next_char == '-': # empty cell(s)
+					# no need to do anything, so just skip the empty cells
+					current_cell += count
+				elif next_char == 'x':
+					# starting from the current cell, fill the next <count> cells
+					for cell in range(0, count):
+						cells[cell_index_from_location(current_cell, row) + cell] = true
+					current_cell += 1
+				else:
+					assert(false, "Invalid character found %c" % next_char)
+				count = 0
+				index += 1
+		row += 1
 
 func is_cell_filled(cell_index: int) -> bool:
 	assert(cell_index >= 0 and cell_index < grid_size * grid_size, "Cell Index outside of grid bounds: %d" % cell_index)
@@ -29,9 +63,14 @@ func toggle_cell(cell_index: int) -> bool:
 		
 	cells[cell_index] = !cells[cell_index]
 	return true
+	
+func cell_index_from_location(x: int, y: int) -> int:
+	return x + (y * grid_size)
 
 func is_valid_cell_index(cell_index: int) -> bool:
 	if cell_index < 0:
 		return false
 		
 	return cell_index < grid_size * grid_size
+	
+# "Private" Functions

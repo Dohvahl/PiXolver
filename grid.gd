@@ -1,22 +1,22 @@
 extends Control
 
-signal size_changed
 
-@export_range(2, 30) var grid_size: int :
-	set(new_size):
-		grid_size = new_size
-		size_changed.emit()
+@export_range(2, 30) var grid_size: int 
+
+# initial state is a string representing the puzzle at the start. 
+# 'x' -> a filled cell
+# '-' -> an empty cell
+# '/' -> new row
+# eg. A 2x2 puzzle where cells (1, 1) and (0, 1) are filled would be represented as
+# 	1-1x/1x1-
+@export_multiline("Starting Puzzle State") var initial_state: String
+
 var cell_size := 32
 
 var puzzle : Puzzle
 
 func _ready() -> void:
-	puzzle = Puzzle.new(grid_size, {}, {})
-
-func _on_size_changed() -> void:
-	size = Vector2i(grid_size * cell_size, grid_size * cell_size)
-	puzzle = Puzzle.new(grid_size, {}, {})
-	queue_redraw()
+	puzzle = Puzzle.new(grid_size, initial_state)
 
 func _draw() -> void:
 	get_window().content_scale_size = Vector2i(cell_size * grid_size, cell_size * grid_size)
@@ -48,7 +48,7 @@ func _input(event: InputEvent) -> void:
 			#var current_cell = get_cell_index(event.position)
 			#for cell in range(starting_drag_cell, current_cell):
 				#puzzle.fill_cell(cell)
-			#
+
 		#dragging = false
 		
 		var cell_clicked = get_cell_index(event.position)
@@ -74,5 +74,5 @@ func get_cell_index(pos: Vector2) -> int:
 	if clicked_x >= grid_size or clicked_y >= grid_size:
 		return -1
 		
-	return clicked_x + (clicked_y * grid_size)
+	return puzzle.cell_index_from_location(clicked_x, clicked_y)
 	
