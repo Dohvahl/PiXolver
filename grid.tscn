@@ -11,7 +11,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_ebq2e")
-grid_size = 4
+grid_size = 3
 metadata/_edit_group_ = true
 
 [connection signal="size_changed" from="." to="." method="_on_size_changed"]

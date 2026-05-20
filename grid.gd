@@ -11,11 +11,11 @@ var cell_size := 32
 var puzzle : Puzzle
 
 func _ready() -> void:
-	puzzle = Puzzle.new(grid_size)
+	puzzle = Puzzle.new(grid_size, {}, {})
 
 func _on_size_changed() -> void:
 	size = Vector2i(grid_size * cell_size, grid_size * cell_size)
-	puzzle = Puzzle.new(grid_size)
+	puzzle = Puzzle.new(grid_size, {}, {})
 	queue_redraw()
 
 func _draw() -> void:
