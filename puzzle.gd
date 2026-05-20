@@ -2,24 +2,56 @@ class_name Puzzle
 
 var grid_size: int
 var cells: Array[bool]
+var solution: Array[bool]
 var row_clues: Dictionary[int, Array]
 var col_clues: Dictionary[int, Array]
 
 func _init(init_grid_size: int, initial_state: String) -> void:
 	grid_size = init_grid_size
 	
+	# initialize the puzzle that we'll use in normal play
 	cells = []
 	cells.resize(grid_size * grid_size)
 	
-	# parse the initial state string and set the grid accordingly
+	# initialize the "solved" version of the puzzle
+	solution = []
+	solution.resize(grid_size * grid_size)
 	
-#region Set Initial State
+	# set the "solved" state of the puzzle
+	_initialize_solution(initial_state)
+
+func is_cell_filled(cell_index: int) -> bool:
+	assert(cell_index >= 0 and cell_index < grid_size * grid_size, "Cell Index outside of grid bounds: %d" % cell_index)
+	return cells[cell_index]
+
+func toggle_cell(cell_index: int) -> bool:
+	if !is_valid_cell_index(cell_index):
+		return false
+		
+	cells[cell_index] = !cells[cell_index]
+	return true
+	
+func cell_index_from_location(x: int, y: int) -> int:
+	return x + (y * grid_size)
+
+func is_valid_cell_index(cell_index: int) -> bool:
+	if cell_index < 0:
+		return false
+		
+	return cell_index < grid_size * grid_size
+	
+func is_solved() -> bool:
+	return cells == solution
+
+#region "Private" Functions
+
+func _initialize_solution(solved_state: String) -> void:
 	# setup needed variables
 	var count := 0
 	var row := 0
 	
 	# iterate over each row state
-	var row_states := initial_state.split("/")
+	var row_states := solved_state.split("/")
 	for row_state in row_states:
 		var index := 0
 		var current_cell := 0
@@ -38,41 +70,13 @@ func _init(init_grid_size: int, initial_state: String) -> void:
 				elif next_char == 'x':
 					# starting from the current cell, fill the next <count> cells
 					for cell in range(0, count):
-						cells[cell_index_from_location(current_cell, row) + cell] = true
+						solution[cell_index_from_location(current_cell, row) + cell] = true
 					current_cell += 1
 				else:
 					assert(false, "Invalid character found %c" % next_char)
 				count = 0
 				index += 1
 		row += 1
-#endregion
-
-func is_cell_filled(cell_index: int) -> bool:
-	assert(cell_index >= 0 and cell_index < grid_size * grid_size, "Cell Index outside of grid bounds: %d" % cell_index)
-	return cells[cell_index]
-
-func fill_cell(cell_index: int) -> bool:
-	if !is_valid_cell_index(cell_index):
-		return false
-	
-	cells[cell_index] = true
-	return true
-
-func toggle_cell(cell_index: int) -> bool:
-	if !is_valid_cell_index(cell_index):
-		return false
-		
-	cells[cell_index] = !cells[cell_index]
-	return true
-	
-func cell_index_from_location(x: int, y: int) -> int:
-	return x + (y * grid_size)
-
-func is_valid_cell_index(cell_index: int) -> bool:
-	if cell_index < 0:
-		return false
-		
-	return cell_index < grid_size * grid_size
 
 # returns an array where:
 # 	result[0] -> count
@@ -81,3 +85,12 @@ func _get_count(starting_index: int, row_state: String) -> Array[int]:
 	var digits_check := 0
 	while row_state[starting_index + digits_check].is_valid_int(): digits_check += 1
 	return [int(row_state.substr(starting_index, digits_check)), digits_check]
+
+func _fill_cell(cell_index: int) -> bool:
+	if !is_valid_cell_index(cell_index):
+		return false
+	
+	cells[cell_index] = true
+	return true
+
+#endregion

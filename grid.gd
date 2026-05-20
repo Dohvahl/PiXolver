@@ -17,6 +17,7 @@ var puzzle : Puzzle
 
 func _ready() -> void:
 	puzzle = Puzzle.new(grid_size, initial_state)
+	$Message.hide()
 
 func _draw() -> void:
 	get_window().content_scale_size = Vector2i(cell_size * grid_size, cell_size * grid_size)
@@ -35,6 +36,12 @@ func _draw() -> void:
 				draw_rect(rect, Color.WHITE, true)
 			else:
 				draw_rect(rect, Color.WHITE, false, 1.5)
+				
+	# check if we've solved it
+	if puzzle.is_solved():
+		print("We did it!")
+		$Message.text = "Solved!"
+		$Message.show()
 
 
 #var dragging := false
@@ -52,10 +59,7 @@ func _input(event: InputEvent) -> void:
 		#dragging = false
 		
 		var cell_clicked = get_cell_index(event.position)
-		if cell_clicked < 0:
-			return
-			
-		if cell_clicked >= grid_size * grid_size:
+		if !puzzle.is_valid_cell_index(cell_clicked):
 			return
 		
 		# Toggle cell
