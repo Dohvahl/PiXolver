@@ -37,20 +37,19 @@ func _draw() -> void:
 				draw_rect(rect, Color.WHITE, false, 1.5)
 
 
-var dragging := false
-var starting_drag_cell := -1
+#var dragging := false
+#var starting_drag_cell := -1
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.is_pressed():
-		dragging = true
-		starting_drag_cell = get_cell_index(event.position)
-	elif event is InputEventMouseButton and event.is_released():
-		if dragging:
-			var current_cell = get_cell_index(event.position)
-			print("Select all cells from %d to %d" % [starting_drag_cell, current_cell])
-			for cell in range(starting_drag_cell, current_cell):
-				puzzle.fill_cell(cell)
-			
-		dragging = false
+		#dragging = true
+		#starting_drag_cell = get_cell_index(event.position)
+	#elif event is InputEventMouseButton and event.is_released():
+		#if dragging:
+			#var current_cell = get_cell_index(event.position)
+			#for cell in range(starting_drag_cell, current_cell):
+				#puzzle.fill_cell(cell)
+			#
+		#dragging = false
 		
 		var cell_clicked = get_cell_index(event.position)
 		if cell_clicked < 0:
