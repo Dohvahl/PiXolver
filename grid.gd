@@ -1,7 +1,12 @@
 extends Control
 
 
+var puzzle : Puzzle
+
 @export_range(2, 30) var grid_size: int 
+var cell_size := 32
+
+var solved := false
 
 # initial state is a string representing the puzzle at the start. 
 # 'x' -> a filled cell
@@ -11,13 +16,10 @@ extends Control
 # 	1-1x/1x1-
 @export_multiline("Starting Puzzle State") var initial_state: String
 
-var cell_size := 32
-
-var puzzle : Puzzle
-
 func _ready() -> void:
 	puzzle = Puzzle.new(grid_size, initial_state)
 	$Message.hide()
+	solved = false
 
 func _draw() -> void:
 	get_window().content_scale_size = Vector2i(cell_size * grid_size, cell_size * grid_size)
@@ -39,7 +41,7 @@ func _draw() -> void:
 				
 	# check if we've solved it
 	if puzzle.is_solved():
-		print("We did it!")
+		solved = true
 		$Message.text = "Solved!"
 		$Message.show()
 
@@ -47,6 +49,9 @@ func _draw() -> void:
 #var dragging := false
 #var starting_drag_cell := -1
 func _input(event: InputEvent) -> void:
+	if solved:
+		return
+		
 	if event is InputEventMouseButton and event.is_pressed():
 		#dragging = true
 		#starting_drag_cell = get_cell_index(event.position)
