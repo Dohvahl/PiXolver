@@ -7,8 +7,6 @@ var puzzle : Puzzle							# data representation of the puzzle
 var cell_size := 32							# pixels per cell
 var _total_width							# grid width + row clues area width
 var _total_height							# grid height + column clues area height
-var _max_row_clues_width := 0				# maximum number of row clues 
-var _max_column_clues_height := 0			# maximum number of column clues
 
 var solved := false
 
@@ -23,44 +21,29 @@ var solved := false
 func _ready() -> void:
 	puzzle = Puzzle.new(grid_size, initial_state)
 	
-	# TODO - this should probably go in the Puzzle class
-	_max_row_clues_width = -1
-	for clue_array in puzzle.row_clues.values():
-		var length = Array(clue_array).size()
-		if length > _max_row_clues_width:
-			_max_row_clues_width = length
-	
-	_total_width = cell_size * (_max_row_clues_width + grid_size)
+	_total_width = cell_size * (puzzle.max_row_clues + grid_size)
 	#_total_height = column_clues_height + (cell_size * grid_size)
 	
 	$Message.hide()
 	solved = false
 
+
 func _draw() -> void:
 	get_window().content_scale_size = Vector2i(_total_width, cell_size * grid_size)
 	
 	# TODO - draw row clues
-	var row_clues_area_width = _max_row_clues_width * cell_size
 	for row_index in range(0, grid_size):
 		var clues_var = puzzle.row_clues.get(row_index)
 		if !clues_var:
 			# draw a '0'
-			var clue_pos = Vector2i(
-				(_max_row_clues_width - 1) * cell_size,
-				(row_index * cell_size) + (cell_size + ThemeDB.fallback_font_size) / 2
-			)
-			draw_string(ThemeDB.fallback_font, clue_pos, "0", HORIZONTAL_ALIGNMENT_CENTER, cell_size)
+			draw_string(ThemeDB.fallback_font, _get_row_clue_position(1, row_index), "0", HORIZONTAL_ALIGNMENT_CENTER, cell_size)
 			continue
 			
 		var clues = Array(clues_var)
 		# draw the clues right-justified
 		var i = clues.size()
 		while i > 0:
-			var clue_pos = Vector2i(
-				(_max_row_clues_width - i) * cell_size,
-				(row_index * cell_size) + (cell_size + ThemeDB.fallback_font_size) / 2
-			)
-			draw_string(ThemeDB.fallback_font, clue_pos, str(clues[i-1]), HORIZONTAL_ALIGNMENT_CENTER, cell_size)
+			draw_string(ThemeDB.fallback_font, _get_row_clue_position(i, row_index), str(clues[i-1]), HORIZONTAL_ALIGNMENT_CENTER, cell_size)
 			i -= 1
 	
 	# TODO - draw column clues
@@ -69,13 +52,13 @@ func _draw() -> void:
 	for x in range(grid_size):
 		for y in range(grid_size):
 			var rect = Rect2(
-				cell_size * (x + _max_row_clues_width), 
+				cell_size * (x + puzzle.max_row_clues), 
 				y * cell_size,
 				cell_size,
 				cell_size
 				)
 
-			var cell_index = get_cell_index_from_position(rect.position)
+			var cell_index = _get_cell_index_from_position(rect.position)
 			if puzzle.is_cell_filled(cell_index):
 				draw_rect(rect, Color.BLACK, true)
 			else:
@@ -105,7 +88,7 @@ func _input(event: InputEvent) -> void:
 
 		#dragging = false
 		
-		var cell_clicked = get_cell_index_from_position(event.position)
+		var cell_clicked = _get_cell_index_from_position(event.position)
 		if !puzzle.is_valid_cell_index(cell_clicked):
 			return
 		
@@ -114,13 +97,16 @@ func _input(event: InputEvent) -> void:
 			queue_redraw()
 		else:
 			print("Something went wrong toggling cell %d" % cell_clicked)
+	
+	
+#region "Private" functions
 
-func get_cell_index_from_position(pos: Vector2) -> int:
+func _get_cell_index_from_position(pos: Vector2) -> int:
 	if pos < Vector2.ZERO:
 		return -1
 		
-	var clicked_x = int(pos.x / cell_size) - _max_row_clues_width
-	var clicked_y = int(pos.y / cell_size) - _max_column_clues_height
+	var clicked_x = int(pos.x / cell_size) - puzzle.max_row_clues
+	var clicked_y = int(pos.y / cell_size) - puzzle.max_col_clues
 	
 	# we have to account for the clues areas when checking the grid locations
 	if clicked_x < 0 or clicked_y < 0:
@@ -130,4 +116,11 @@ func get_cell_index_from_position(pos: Vector2) -> int:
 		return -1
 		
 	return puzzle.cell_index_from_location(clicked_x, clicked_y)
+
+func _get_row_clue_position(x: int, y: int) -> Vector2i:
+	return Vector2i(
+		(puzzle.max_row_clues - x) * cell_size,
+		(y * cell_size) + (cell_size + ThemeDB.fallback_font_size) / 2
+	)
 	
+#endregion
