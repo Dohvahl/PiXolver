@@ -19,6 +19,9 @@ func _init(init_grid_size: int, initial_state: String) -> void:
 	
 	# set the "solved" state of the puzzle
 	_initialize_solution(initial_state)
+	
+	# add clues to the top and left side of the puzzle
+	_setup_clues()
 
 func is_cell_filled(cell_index: int) -> bool:
 	assert(cell_index >= 0 and cell_index < grid_size * grid_size, "Cell Index outside of grid bounds: %d" % cell_index)
@@ -85,6 +88,32 @@ func _get_count(starting_index: int, row_state: String) -> Array[int]:
 	var digits_check := 0
 	while row_state[starting_index + digits_check].is_valid_int(): digits_check += 1
 	return [int(row_state.substr(starting_index, digits_check)), digits_check]
+
+func _setup_clues() -> void:
+	# figure out row clues
+	for row in range(0, grid_size):
+		var i := 0
+		var current_clue := 0
+		while i < grid_size:
+			if solution[cell_index_from_location(i, row)]:
+				current_clue += 1
+			elif current_clue > 0:
+				_add_clue(row, current_clue)
+				current_clue = 0
+			i += 1
+		
+		# we may have made it to the end of the row with clues, so we need to add those here
+		if current_clue > 0:
+			_add_clue(row, current_clue)
+		
+	# figure out column clues
+	for col in range(0, grid_size):
+		pass
+		
+func _add_clue(key: int, clue: int) -> void:
+	if !row_clues.get(key):
+		row_clues.set(key, [])
+	row_clues[key].append(clue)
 
 func _fill_cell(cell_index: int) -> bool:
 	if !is_valid_cell_index(cell_index):

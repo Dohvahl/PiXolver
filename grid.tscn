@@ -8,14 +8,10 @@ font_weight = 800
 
 [node name="Grid" type="Control" unique_id=892591740]
 layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+anchors_preset = 0
 script = ExtResource("1_ebq2e")
-grid_size = 2
-initial_state = "1x1-/2-"
+grid_size = 3
+initial_state = "2x1-/3-/3x"
 metadata/_edit_group_ = true
 
 [node name="Message" type="Label" parent="." unique_id=939463974]
