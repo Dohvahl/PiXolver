@@ -60,16 +60,20 @@ func _input(event: InputEvent) -> void:
 		return
 		
 	if event is InputEventMouseButton and event.is_pressed():
+		var cell_clicked = _get_cell_index_from_position(event.position)
+		if !puzzle.is_valid_cell_index(cell_clicked):
+			return
+		
 		if event.button_index == MOUSE_BUTTON_LEFT:	# left click
-			var cell_clicked = _get_cell_index_from_position(event.position)
-			if !puzzle.is_valid_cell_index(cell_clicked):
-				return
-			
 			# Toggle cell
 			if puzzle.toggle_cell(cell_clicked):
 				queue_redraw()
-			else:
-				print("Something went wrong toggling cell %d" % cell_clicked)
+		elif event.button_index == MOUSE_BUTTON_RIGHT: # right click
+			# Mark cell
+			if puzzle.is_cell_marked(cell_clicked) && puzzle.unmark_cell(cell_clicked):
+				queue_redraw()
+			elif puzzle.mark_cell(cell_clicked):
+				queue_redraw()
 
 #region "Private" functions
 
@@ -154,6 +158,8 @@ func _draw_puzzle_grid() -> void:
 			var cell_index = _get_cell_index_from_position(rect.position)
 			if puzzle.is_cell_filled(cell_index):
 				draw_rect(rect, Color.BLACK, true)
+			elif puzzle.is_cell_marked(cell_index):
+				draw_rect(rect, Color.RED, true)
 			else:
 				draw_rect(rect, Color.WHITE, false, 1.5)
 				
