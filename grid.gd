@@ -43,8 +43,8 @@ func _ready() -> void:
 
 func _draw() -> void:
 	# draw the row and column clues first, since the puzzle grid is affected by their position
-	_draw_row_clues()
-	_draw_column_clues()
+	_draw_clues_area(puzzle.row_clues, _get_row_clue_position)
+	_draw_clues_area(puzzle.col_clues, _get_col_clue_position)
 	
 	# now draw the puzzle grid, offset appropriately
 	_draw_puzzle_grid()
@@ -85,50 +85,17 @@ func _input(event: InputEvent) -> void:
 #region "Private" functions
 
 #region Drawing Functions
-
-func _draw_row_clues() -> void:
-	for row_index in range(0, grid_size):
-		var clues_var = puzzle.row_clues.get(row_index)
+			
+func _draw_clues_area(clues: Dictionary[int, Array], get_clue_position: Callable) -> void:
+	for index in range(0, grid_size):
+		var clues_var = clues.get(index)
 		if !clues_var:
 			# draw a '0'
-			var clue_position := _get_row_clue_position(row_index, 1)
+			var clue_position = get_clue_position.call(index, 1)
 			
 			if draw_clue_cells:
 				var clue_rect = Rect2(
 					clue_position - Vector2(0, FONT_OFFSET),
-					Vector2(CELL_SIZE, CELL_SIZE)
-				)
-				draw_rect(clue_rect, Color.GREEN, false, 1.0)
-				
-			draw_string(ThemeDB.fallback_font, _get_row_clue_position(row_index, 1), "0", HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE)
-			continue
-			
-		var clues = Array(clues_var)
-		# draw the clues right-justified
-		var i = clues.size()
-		while i > 0:
-			var clue_position := _get_row_clue_position(row_index, i)
-			
-			if draw_clue_cells:
-				var clue_rect = Rect2(
-					clue_position - Vector2(0, FONT_OFFSET),
-					Vector2(CELL_SIZE, CELL_SIZE)
-				)
-				draw_rect(clue_rect, Color.GREEN, false, 1.0)
-				
-			draw_string(ThemeDB.fallback_font, clue_position, str(clues[i-1]), HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE)
-			i -= 1
-
-func _draw_column_clues() -> void:
-	for col_index in range(0, grid_size):
-		var clues_var = puzzle.col_clues.get(col_index)
-		if !clues_var:
-			# draw a '0'
-			var clue_position = _get_col_clue_position(col_index, 1)
-			
-			if draw_clue_cells:
-				var clue_rect = Rect2(
-					clue_position,
 					Vector2i(CELL_SIZE, CELL_SIZE)
 				)
 				draw_rect(clue_rect, Color.GREEN, false, 1.0)
@@ -136,11 +103,11 @@ func _draw_column_clues() -> void:
 			draw_string(ThemeDB.fallback_font, clue_position, "0", HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE)
 			continue
 			
-		var clues = Array(clues_var)
 		# draw the clues bottom-up
-		var i = clues.size()
+		var clues_array = Array(clues_var) 
+		var i = clues_array.size()
 		while i > 0:
-			var clue_position = _get_col_clue_position(col_index, i)
+			var clue_position = get_clue_position.call(index, i)
 			
 			if draw_clue_cells:
 				var clue_rect = Rect2(
@@ -148,7 +115,8 @@ func _draw_column_clues() -> void:
 					Vector2i(CELL_SIZE, CELL_SIZE)
 				)
 				draw_rect(clue_rect, Color.GREEN, false, 1.0)
-			draw_string(ThemeDB.fallback_font, clue_position, str(clues[i-1]), HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE)
+
+			draw_string(ThemeDB.fallback_font, clue_position, str(clues_array[i-1]), HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE)
 			i -= 1
 
 func _draw_puzzle_grid() -> void:
