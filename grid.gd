@@ -55,32 +55,21 @@ func _draw() -> void:
 		$Message.text = "Solved!"
 		$Message.show()
 
-#var dragging := false
-#var starting_drag_cell := -1
 func _input(event: InputEvent) -> void:
 	if solved:
 		return
 		
 	if event is InputEventMouseButton and event.is_pressed():
-		#dragging = true
-		#starting_drag_cell = get_cell_index(event.position)
-	#elif event is InputEventMouseButton and event.is_released():
-		#if dragging:
-			#var current_cell = get_cell_index(event.position)
-			#for cell in range(starting_drag_cell, current_cell):
-				#puzzle.fill_cell(cell)
-
-		#dragging = false
-		
-		var cell_clicked = _get_cell_index_from_position(event.position)
-		if !puzzle.is_valid_cell_index(cell_clicked):
-			return
-		
-		# Toggle cell
-		if puzzle.toggle_cell(cell_clicked):
-			queue_redraw()
-		else:
-			print("Something went wrong toggling cell %d" % cell_clicked)
+		if event.button_index == MOUSE_BUTTON_LEFT:	# left click
+			var cell_clicked = _get_cell_index_from_position(event.position)
+			if !puzzle.is_valid_cell_index(cell_clicked):
+				return
+			
+			# Toggle cell
+			if puzzle.toggle_cell(cell_clicked):
+				queue_redraw()
+			else:
+				print("Something went wrong toggling cell %d" % cell_clicked)
 
 #region "Private" functions
 
