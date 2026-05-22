@@ -15,7 +15,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_ebq2e")
 grid_size = 3
-initial_state = "2x1-/3-/2x1-"
+initial_state = "2x1-/3-/3x"
 metadata/_edit_group_ = true
 
 [node name="Message" type="Label" parent="." unique_id=939463974]
