@@ -5,6 +5,7 @@
 [sub_resource type="SystemFont" id="SystemFont_ebq2e"]
 font_names = PackedStringArray("DejaVu Sans Mono")
 font_weight = 800
+subpixel_positioning = 0
 
 [node name="Grid" type="Control" unique_id=892591740]
 layout_mode = 3
@@ -14,8 +15,9 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_ebq2e")
-grid_size = 3
-initial_state = "2x1-/3-/3x"
+grid_size = 5
+draw_clue_cells = true
+initial_state = "1-3x1-/1x1-2x1-/1-1x1-2x/1x3-1x/5x"
 metadata/_edit_group_ = true
 
 [node name="Message" type="Label" parent="." unique_id=939463974]

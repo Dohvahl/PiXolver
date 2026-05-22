@@ -105,8 +105,8 @@ func _draw_row_clues() -> void:
 			
 		var clues = Array(clues_var)
 		# draw the clues right-justified
-		var i = clues.size()
-		while i > 0:
+		var i = 0
+		while i < clues.size():
 			var clue_position := _get_row_clue_position(row_index, i)
 			
 			if draw_clue_cells:
@@ -116,8 +116,8 @@ func _draw_row_clues() -> void:
 				)
 				draw_rect(clue_rect, Color.GREEN, false, 1.0)
 				
-			draw_string(ThemeDB.fallback_font, clue_position, str(clues[i-1]), HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE)
-			i -= 1
+			draw_string(ThemeDB.fallback_font, clue_position, str(clues[clues.size() - i - 1]), HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE)
+			i += 1
 
 func _draw_column_clues() -> void:
 	for col_index in range(0, grid_size):
@@ -138,8 +138,8 @@ func _draw_column_clues() -> void:
 			
 		var clues = Array(clues_var)
 		# draw the clues bottom-up
-		var i = clues.size()
-		while i > 0:
+		var i = 0
+		while i < clues.size():
 			var clue_position = _get_col_clue_position(col_index, i)
 			
 			if draw_clue_cells:
@@ -148,8 +148,9 @@ func _draw_column_clues() -> void:
 					Vector2i(CELL_SIZE, CELL_SIZE)
 				)
 				draw_rect(clue_rect, Color.GREEN, false, 1.0)
-			draw_string(ThemeDB.fallback_font, clue_position, str(clues[i-1]), HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE)
-			i -= 1
+				
+			draw_string(ThemeDB.fallback_font, clue_position, str(clues[clues.size() - 1 - i]), HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE)
+			i += 1
 
 func _draw_puzzle_grid() -> void:
 	for x in range(grid_size):
@@ -187,14 +188,14 @@ func _get_cell_index_from_position(pos: Vector2) -> int:
 
 func _get_row_clue_position(row_index: int, offset: int) -> Vector2:
 	return Vector2i(
-		(puzzle.max_row_clues - offset) * CELL_SIZE,
+		(puzzle.max_row_clues - offset - 1) * CELL_SIZE,
 		(puzzle.max_col_clues * CELL_SIZE) + (row_index * CELL_SIZE) + FONT_OFFSET
 	)
 
 func _get_col_clue_position(col_index: int, offset: int) -> Vector2:
 	return Vector2i(
 		(puzzle.max_row_clues * CELL_SIZE) + (col_index * CELL_SIZE),
-		(puzzle.max_col_clues - offset) * CELL_SIZE + FONT_OFFSET
+		(puzzle.max_col_clues - offset - 1) * CELL_SIZE + FONT_OFFSET
 	)
 	
 #endregion
