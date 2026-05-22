@@ -4,11 +4,22 @@ extends Control
 var puzzle : Puzzle							# data representation of the puzzle
 
 @export_range(2, 30) var grid_size: int 	# dimenion for the grid. Total grid size is grid_size * grid_size
-var cell_size := 32							# pixels per cell
 var _total_width							# grid width + row clues area width
 var _total_height							# grid height + column clues area height
 
+const CELL_SIZE := 32						# pixels per cell
+var FONT_OFFSET := int((CELL_SIZE + ThemeDB.fallback_font_size) / 2)
+
 var solved := false
+
+#region DEBUG VARIABLES
+
+@export var draw_clue_cells: bool :
+	set(new_val):
+		draw_clue_cells = new_val
+		queue_redraw()
+
+#endregion
 
 # initial state is a string representing the puzzle at the start. 
 # 'x' -> a filled cell
@@ -21,55 +32,28 @@ var solved := false
 func _ready() -> void:
 	puzzle = Puzzle.new(grid_size, initial_state)
 	
-	_total_width = cell_size * (puzzle.max_row_clues + grid_size)
-	#_total_height = column_clues_height + (cell_size * grid_size)
+	_total_width = CELL_SIZE * (puzzle.max_row_clues + grid_size)
+	_total_height = CELL_SIZE * (puzzle.max_col_clues + grid_size)
+	
+	# size the window to contain the whole puzzle
+	get_window().content_scale_size = Vector2i(_total_width, _total_height)
 	
 	$Message.hide()
 	solved = false
 
-
 func _draw() -> void:
-	get_window().content_scale_size = Vector2i(_total_width, cell_size * grid_size)
+	# draw the row and column clues first, since the puzzle grid is affected by their position
+	_draw_row_clues()
+	_draw_column_clues()
 	
-	# TODO - draw row clues
-	for row_index in range(0, grid_size):
-		var clues_var = puzzle.row_clues.get(row_index)
-		if !clues_var:
-			# draw a '0'
-			draw_string(ThemeDB.fallback_font, _get_row_clue_position(1, row_index), "0", HORIZONTAL_ALIGNMENT_CENTER, cell_size)
-			continue
-			
-		var clues = Array(clues_var)
-		# draw the clues right-justified
-		var i = clues.size()
-		while i > 0:
-			draw_string(ThemeDB.fallback_font, _get_row_clue_position(i, row_index), str(clues[i-1]), HORIZONTAL_ALIGNMENT_CENTER, cell_size)
-			i -= 1
-	
-	# TODO - draw column clues
-	
-	# draw the puzzle grid, offset by the clues areas
-	for x in range(grid_size):
-		for y in range(grid_size):
-			var rect = Rect2(
-				cell_size * (x + puzzle.max_row_clues), 
-				y * cell_size,
-				cell_size,
-				cell_size
-				)
-
-			var cell_index = _get_cell_index_from_position(rect.position)
-			if puzzle.is_cell_filled(cell_index):
-				draw_rect(rect, Color.BLACK, true)
-			else:
-				draw_rect(rect, Color.WHITE, false, 1.5)
-				
+	# now draw the puzzle grid, offset appropriately
+	_draw_puzzle_grid()
+					
 	# check if we've solved it
 	if puzzle.is_solved():
 		solved = true
 		$Message.text = "Solved!"
 		$Message.show()
-
 
 #var dragging := false
 #var starting_drag_cell := -1
@@ -97,16 +81,100 @@ func _input(event: InputEvent) -> void:
 			queue_redraw()
 		else:
 			print("Something went wrong toggling cell %d" % cell_clicked)
-	
-	
+
 #region "Private" functions
+
+#region Drawing Functions
+
+func _draw_row_clues() -> void:
+	for row_index in range(0, grid_size):
+		var clues_var = puzzle.row_clues.get(row_index)
+		if !clues_var:
+			# draw a '0'
+			var clue_position := _get_row_clue_position(row_index, 1)
+			
+			if draw_clue_cells:
+				var clue_rect = Rect2(
+					clue_position - Vector2(0, FONT_OFFSET),
+					Vector2(CELL_SIZE, CELL_SIZE)
+				)
+				draw_rect(clue_rect, Color.GREEN, false, 1.0)
+				
+			draw_string(ThemeDB.fallback_font, _get_row_clue_position(row_index, 1), "0", HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE)
+			continue
+			
+		var clues = Array(clues_var)
+		# draw the clues right-justified
+		var i = clues.size()
+		while i > 0:
+			var clue_position := _get_row_clue_position(row_index, i)
+			
+			if draw_clue_cells:
+				var clue_rect = Rect2(
+					clue_position - Vector2(0, FONT_OFFSET),
+					Vector2(CELL_SIZE, CELL_SIZE)
+				)
+				draw_rect(clue_rect, Color.GREEN, false, 1.0)
+				
+			draw_string(ThemeDB.fallback_font, clue_position, str(clues[i-1]), HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE)
+			i -= 1
+
+func _draw_column_clues() -> void:
+	for col_index in range(0, grid_size):
+		var clues_var = puzzle.col_clues.get(col_index)
+		if !clues_var:
+			# draw a '0'
+			var clue_position = _get_col_clue_position(col_index, 1)
+			
+			if draw_clue_cells:
+				var clue_rect = Rect2(
+					clue_position,
+					Vector2i(CELL_SIZE, CELL_SIZE)
+				)
+				draw_rect(clue_rect, Color.GREEN, false, 1.0)
+				
+			draw_string(ThemeDB.fallback_font, clue_position, "0", HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE)
+			continue
+			
+		var clues = Array(clues_var)
+		# draw the clues bottom-up
+		var i = clues.size()
+		while i > 0:
+			var clue_position = _get_col_clue_position(col_index, i)
+			
+			if draw_clue_cells:
+				var clue_rect = Rect2(
+					clue_position - Vector2(0, FONT_OFFSET),
+					Vector2i(CELL_SIZE, CELL_SIZE)
+				)
+				draw_rect(clue_rect, Color.GREEN, false, 1.0)
+			draw_string(ThemeDB.fallback_font, clue_position, str(clues[i-1]), HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE)
+			i -= 1
+
+func _draw_puzzle_grid() -> void:
+	for x in range(grid_size):
+		for y in range(grid_size):
+			var rect = Rect2(
+				CELL_SIZE * (x + puzzle.max_row_clues), 
+				CELL_SIZE * (y + puzzle.max_col_clues),
+				CELL_SIZE,
+				CELL_SIZE
+				)
+
+			var cell_index = _get_cell_index_from_position(rect.position)
+			if puzzle.is_cell_filled(cell_index):
+				draw_rect(rect, Color.BLACK, true)
+			else:
+				draw_rect(rect, Color.WHITE, false, 1.5)
+				
+#endregion
 
 func _get_cell_index_from_position(pos: Vector2) -> int:
 	if pos < Vector2.ZERO:
 		return -1
 		
-	var clicked_x = int(pos.x / cell_size) - puzzle.max_row_clues
-	var clicked_y = int(pos.y / cell_size) - puzzle.max_col_clues
+	var clicked_x = int(pos.x / CELL_SIZE) - puzzle.max_row_clues
+	var clicked_y = int(pos.y / CELL_SIZE) - puzzle.max_col_clues
 	
 	# we have to account for the clues areas when checking the grid locations
 	if clicked_x < 0 or clicked_y < 0:
@@ -117,10 +185,16 @@ func _get_cell_index_from_position(pos: Vector2) -> int:
 		
 	return puzzle.cell_index_from_location(clicked_x, clicked_y)
 
-func _get_row_clue_position(x: int, y: int) -> Vector2i:
+func _get_row_clue_position(row_index: int, offset: int) -> Vector2:
 	return Vector2i(
-		(puzzle.max_row_clues - x) * cell_size,
-		(y * cell_size) + (cell_size + ThemeDB.fallback_font_size) / 2
+		(puzzle.max_row_clues - offset) * CELL_SIZE,
+		(puzzle.max_col_clues * CELL_SIZE) + (row_index * CELL_SIZE) + FONT_OFFSET
+	)
+
+func _get_col_clue_position(col_index: int, offset: int) -> Vector2:
+	return Vector2i(
+		(puzzle.max_row_clues * CELL_SIZE) + (col_index * CELL_SIZE),
+		(puzzle.max_col_clues - offset) * CELL_SIZE + FONT_OFFSET
 	)
 	
 #endregion

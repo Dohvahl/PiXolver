@@ -102,7 +102,7 @@ func _setup_clues() -> void:
 			if solution[cell_index_from_location(i, row)]:
 				current_clue += 1
 			elif current_clue > 0:
-				var current_count = _add_clue(row, current_clue)
+				var current_count = _add_row_clue(row, current_clue)
 				if current_count > current_max:
 					current_max = current_count
 				current_clue = 0
@@ -110,7 +110,7 @@ func _setup_clues() -> void:
 		
 		# we may have made it to the end of the row with clues, so we need to add those here
 		if current_clue > 0:
-			var current_count = _add_clue(row, current_clue)
+			var current_count = _add_row_clue(row, current_clue)
 			if current_count > current_max:
 				current_max	= current_count
 		
@@ -119,14 +119,41 @@ func _setup_clues() -> void:
 		
 	# figure out column clues
 	for col in range(0, grid_size):
-		pass
+		var i := 0
+		var current_clue := 0
+		while i < grid_size:
+			if solution[cell_index_from_location(col, i)]:
+				current_clue += 1
+			elif current_clue > 0:
+				var current_count = _add_col_clue(col, current_clue)
+				if current_count > current_max:
+					current_max = current_count
+				current_clue = 0
+			i += 1
+		
+		# we may have made it to the end of the row with clues, so we need to add those here
+		if current_clue > 0:
+			var current_count = _add_col_clue(col, current_clue)
+			if current_count > current_max:
+				current_max	= current_count
+		
+		if current_max > max_col_clues:
+			max_col_clues = current_max
+
 		
 # returns the number of clues currently in the array
-func _add_clue(key: int, clue: int) -> int:
+func _add_row_clue(key: int, clue: int) -> int:
 	if !row_clues.get(key):
 		row_clues.set(key, [])
 	row_clues[key].append(clue)
 	return row_clues[key].size()
+		
+# returns the number of clues currently in the array
+func _add_col_clue(key: int, clue: int) -> int:
+	if !col_clues.get(key):
+		col_clues.set(key, [])
+	col_clues[key].append(clue)
+	return col_clues[key].size()
 
 func _fill_cell(cell_index: int) -> bool:
 	if !is_valid_cell_index(cell_index):
