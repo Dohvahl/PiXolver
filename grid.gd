@@ -8,7 +8,7 @@ var _total_width							# grid width + row clues area width
 var _total_height							# grid height + column clues area height
 
 const CELL_SIZE := 32						# pixels per cell
-var FONT_OFFSET := (CELL_SIZE + ThemeDB.fallback_font_size) / 2
+var FONT_OFFSET := int((CELL_SIZE + ThemeDB.fallback_font_size) / 2)
 
 var solved := false
 
