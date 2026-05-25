@@ -7,6 +7,30 @@ enum Cell_State {
 	FILLED
 }
 
+# represents a row or column in the puzzle
+class CellArray:
+	var length : int		# number of cells in the row
+	var marked_cells : int	# bit-mask representing the marked cells
+	var filled_cells : int	# bit-mask representing the filled-in cells
+	
+	func _init(num_cells: int) -> void:
+		length = num_cells
+		marked_cells = 0
+		filled_cells = 0
+		
+	func mark_cell(cell: int) -> void:
+		marked_cells = marked_cells | (1<<cell)
+	
+	func unmark_cell(cell: int) -> void:
+		marked_cells = marked_cells & (0<<cell)
+	
+	func fill_cell(cell: int) -> void:
+		unmark_cell(cell)
+		filled_cells = filled_cells | (1<<cell)
+		
+	func empty_cell(cell: int) -> void:
+		filled_cells = filled_cells & (0<<cell)
+
 var grid_size: int
 var cells: PackedByteArray
 var solution: PackedByteArray
