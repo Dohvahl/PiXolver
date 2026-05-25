@@ -28,14 +28,14 @@ class CellArray:
 		marked_cells = marked_cells | (1<<cell)
 	
 	func unmark_cell(cell: int) -> void:
-		marked_cells = marked_cells & (0<<cell)
+		marked_cells = marked_cells & ~(1<<cell)
 	
 	func fill_cell(cell: int) -> void:
 		unmark_cell(cell)
 		filled_cells = filled_cells | (1<<cell)
 		
 	func empty_cell(cell: int) -> void:
-		filled_cells = filled_cells & (0<<cell)
+		filled_cells = filled_cells & ~(1<<cell)
 
 var grid_size: int
 var rows: Array[CellArray]
