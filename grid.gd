@@ -10,6 +10,9 @@ var _total_height							# grid height + column clues area height
 const CELL_SIZE := 32						# pixels per cell
 var FONT_OFFSET := int((CELL_SIZE + ThemeDB.fallback_font_size) / 2)
 
+@export var solver_scene : PackedScene
+var solver
+
 var solved := false
 
 #region DEBUG VARIABLES
@@ -39,6 +42,10 @@ func _ready() -> void:
 	get_window().content_scale_size = Vector2i(_total_width, _total_height)
 	
 	$Message.hide()
+	
+	if solver_scene != null and solver_scene.can_instantiate():
+		solver = solver_scene.instantiate()
+		add_child(solver)
 	solved = false
 
 func _draw() -> void:
@@ -74,6 +81,8 @@ func _input(event: InputEvent) -> void:
 				queue_redraw()
 			elif puzzle.mark_cell(cell_clicked):
 				queue_redraw()
+	elif event.is_action_pressed("run_solver"):
+		solver.run(puzzle)
 
 #region "Private" functions
 

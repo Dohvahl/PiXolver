@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://32mi8q7l0d36"]
 
 [ext_resource type="Script" uid="uid://b531bxas7rtak" path="res://grid.gd" id="1_ebq2e"]
+[ext_resource type="PackedScene" uid="uid://1gnjb8s457r2" path="res://solver.tscn" id="2_65i6o"]
 
 [sub_resource type="SystemFont" id="SystemFont_ebq2e"]
 font_names = PackedStringArray("DejaVu Sans Mono")
@@ -16,6 +17,7 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("1_ebq2e")
 grid_size = 5
+solver_scene = ExtResource("2_65i6o")
 draw_clue_cells = true
 initial_state = "1-3x1-/1x1-2x1-/1-1x1-2x/1x3-1x/5x"
 metadata/_edit_group_ = true
