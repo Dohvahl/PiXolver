@@ -1,13 +1,7 @@
 class_name Puzzle
 
 
-enum Cell_State {
-	EMPTY,
-	MARKED,
-	FILLED
-}
-
-# represents a row or column in the puzzle
+# represents a row in the puzzle
 class CellArray:
 	var length : int		# number of cells in the row
 	var marked_cells : int	# bit-mask representing the marked cells
@@ -49,12 +43,12 @@ var max_col_clues := 0
 
 func _init(init_grid_size: int, initial_state: String) -> void:
 	grid_size = init_grid_size
-	
+
 	# initialize the puzzle that we'll use in normal play
 	rows.resize(grid_size)
 	for i in range(0, grid_size):
 		rows[i] = CellArray.new(grid_size)
-	
+
 	# initialize the "solved" version of the puzzle
 	solution_rows.resize(grid_size)
 	for i in range(0, grid_size):
@@ -62,7 +56,7 @@ func _init(init_grid_size: int, initial_state: String) -> void:
 
 	# set the "solved" state of the puzzle
 	_initialize_solution(initial_state)
-	
+
 	# add clues to the top and left side of the puzzle
 	_setup_clues()
 
@@ -70,7 +64,7 @@ func is_cell_filled(x: int, y: int) -> bool:
 	assert(is_valid_cell_index(x, y), 
 		"Cell Index outside of grid bounds: [%d, %d]" % [x,y])
 	return rows[y].is_cell_filled(x)
-	
+
 func is_cell_marked(x: int, y: int) -> bool:
 	assert(is_valid_cell_index(x, y), 
 		"Cell Index outside of grid bounds: [%d, %d]" % [x,y])
@@ -79,33 +73,33 @@ func is_cell_marked(x: int, y: int) -> bool:
 func toggle_cell(x: int, y: int) -> bool:
 	if !is_valid_cell_index(x, y):
 		return false
-	
+
 	if rows[y].is_cell_filled(x):
 		rows[y].empty_cell(x)
 	else:
 		rows[y].fill_cell(x)
 	return true
-	
+
 func mark_cell(x: int, y: int) -> bool:
 	if !is_valid_cell_index(x, y):
 		return false
 
 	rows[y].mark_cell(x)
 	return true
-	
+
 func unmark_cell(x: int, y: int) -> bool:
 	if !is_valid_cell_index(x, y):
 		return false
 
 	rows[y].unmark_cell(x)
 	return true
-	
+
 func cell_index_from_location(x: int, y: int) -> int:
 	return x + (y * grid_size)
 
 func is_valid_cell_index(x: int, y: int) -> bool:
 	return x >= 0 and x < grid_size and y >= 0 and y < grid_size
-	
+
 func is_solved() -> bool:
 	for i in range(0, grid_size):
 		for j in range(0, grid_size):
@@ -120,7 +114,7 @@ func _initialize_solution(solved_state: String) -> void:
 	# setup needed variables
 	var count := 0
 	var row := 0
-	
+
 	# iterate over each row state
 	var row_states := solved_state.split("/")
 	for row_state in row_states:
@@ -158,7 +152,7 @@ func _get_count(starting_index: int, row_state: String) -> Array[int]:
 
 func _setup_clues() -> void:
 	var current_max := 0
-	
+
 	# figure out row clues
 	for row in range(0, grid_size):
 		var i := 0
@@ -172,16 +166,16 @@ func _setup_clues() -> void:
 					current_max = current_count
 				current_clue = 0
 			i += 1
-		
+
 		# we may have made it to the end of the row with clues, so we need to add those here
 		if current_clue > 0:
 			var current_count = _add_row_clue(row, current_clue)
 			if current_count > current_max:
 				current_max	= current_count
-		
+
 		if current_max > max_row_clues:
 			max_row_clues = current_max
-		
+
 	# figure out column clues
 	for col in range(0, grid_size):
 		var i := 0
@@ -195,24 +189,23 @@ func _setup_clues() -> void:
 					current_max = current_count
 				current_clue = 0
 			i += 1
-		
+
 		# we may have made it to the end of the row with clues, so we need to add those here
 		if current_clue > 0:
 			var current_count = _add_col_clue(col, current_clue)
 			if current_count > current_max:
 				current_max	= current_count
-		
+
 		if current_max > max_col_clues:
 			max_col_clues = current_max
 
-		
 # returns the number of clues currently in the array
 func _add_row_clue(key: int, clue: int) -> int:
 	if !row_clues.get(key):
 		row_clues.set(key, [])
 	row_clues[key].append(clue)
 	return row_clues[key].size()
-		
+
 # returns the number of clues currently in the array
 func _add_col_clue(key: int, clue: int) -> int:
 	if !col_clues.get(key):
@@ -223,7 +216,7 @@ func _add_col_clue(key: int, clue: int) -> int:
 func _fill_cell(x: int, y: int) -> bool:
 	if !is_valid_cell_index(x, y):
 		return false
-	
+
 	rows[y].fill_cell(x)
 	return true
 
