@@ -23,8 +23,8 @@ func run(puzzle: Puzzle) -> void:
 			if _clue_totals_plus_spaces_match_cell_count(row_clues, puzzle.grid_size):
 				# fill in the row
 				for i in range(0, puzzle.grid_size):
-					if !puzzle.is_cell_filled(puzzle.cell_index_from_location(i, row_index)):
-						puzzle.toggle_cell(puzzle.cell_index_from_location(i, row_index))
+					if !puzzle.is_cell_filled(i, row_index):
+						puzzle.toggle_cell(i, row_index)
 
 		for column_index in range(0, puzzle.grid_size):
 			var column_clues = puzzle.col_clues.get(column_index)
@@ -34,17 +34,17 @@ func run(puzzle: Puzzle) -> void:
 
 			if _clue_totals_plus_spaces_match_cell_count(column_clues, puzzle.grid_size):
 				# fill in the column
-				var cell = puzzle.cell_index_from_location(column_index, 0)
+				var row = 0
 				for clue in column_clues:
 					var count = 0
 					while count < clue:
-						if !puzzle.is_cell_filled(cell):
-							puzzle.toggle_cell(cell)
+						if !puzzle.is_cell_filled(column_index, row):
+							puzzle._fill_cell(column_index, row)
 						count += 1
-						cell += puzzle.grid_size
+						row += 1
 					# because the column is filled by the clues, the next row
 					# is a space, so skip to the next row down
-					cell += puzzle.grid_size
+					row += 1
 
 		get_parent().queue_redraw()
 		iterations += 1

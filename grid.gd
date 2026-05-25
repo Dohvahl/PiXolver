@@ -68,18 +68,18 @@ func _input(event: InputEvent) -> void:
 		
 	if event is InputEventMouseButton and event.is_pressed():
 		var cell_clicked = _get_cell_index_from_position(event.position)
-		if !puzzle.is_valid_cell_index(cell_clicked):
+		if !puzzle.is_valid_cell_index(cell_clicked.x, cell_clicked.y):
 			return
 		
 		if event.button_index == MOUSE_BUTTON_LEFT:	# left click
 			# Toggle cell
-			if puzzle.toggle_cell(cell_clicked):
+			if puzzle.toggle_cell(cell_clicked.x, cell_clicked.y):
 				queue_redraw()
 		elif event.button_index == MOUSE_BUTTON_RIGHT: # right click
 			# Mark cell
-			if puzzle.is_cell_marked(cell_clicked) && puzzle.unmark_cell(cell_clicked):
+			if puzzle.is_cell_marked(cell_clicked.x, cell_clicked.y) && puzzle.unmark_cell(cell_clicked.x, cell_clicked.y):
 				queue_redraw()
-			elif puzzle.mark_cell(cell_clicked):
+			elif puzzle.mark_cell(cell_clicked.x, cell_clicked.y):
 				queue_redraw()
 	elif event.is_action_pressed("run_solver"):
 		solver.run(puzzle)
@@ -164,31 +164,31 @@ func _draw_puzzle_grid() -> void:
 				CELL_SIZE
 				)
 
-			var cell_index = _get_cell_index_from_position(rect.position)
-			if puzzle.is_cell_filled(cell_index):
+			var cell_location = _get_cell_index_from_position(rect.position)
+			if puzzle.is_cell_filled(cell_location.x, cell_location.y):
 				draw_rect(rect, Color.BLACK, true)
-			elif puzzle.is_cell_marked(cell_index):
+			elif puzzle.is_cell_marked(cell_location.x, cell_location.y):
 				draw_rect(rect, Color.RED, true)
 			else:
 				draw_rect(rect, Color.WHITE, false, 1.5)
 				
 #endregion
 
-func _get_cell_index_from_position(pos: Vector2) -> int:
+func _get_cell_index_from_position(pos: Vector2) -> Vector2i:
 	if pos < Vector2.ZERO:
-		return -1
+		return Vector2i.MIN
 		
 	var clicked_x = int(pos.x / CELL_SIZE) - puzzle.max_row_clues
 	var clicked_y = int(pos.y / CELL_SIZE) - puzzle.max_col_clues
 	
 	# we have to account for the clues areas when checking the grid locations
 	if clicked_x < 0 or clicked_y < 0:
-		return -1
+		return Vector2i.MIN
 	
 	if clicked_x >= grid_size or clicked_y >= grid_size:
-		return -1
+		return Vector2i.MIN
 		
-	return puzzle.cell_index_from_location(clicked_x, clicked_y)
+	return Vector2i(clicked_x, clicked_y)
 
 func _get_row_clue_position(row_index: int, offset: int) -> Vector2:
 	return Vector2i(

@@ -18,6 +18,12 @@ class CellArray:
 		marked_cells = 0
 		filled_cells = 0
 		
+	func is_cell_marked(cell: int) -> bool:
+		return marked_cells & (1<<cell)
+		
+	func is_cell_filled(cell: int) -> bool:
+		return filled_cells & (1<<cell)
+		
 	func mark_cell(cell: int) -> void:
 		marked_cells = marked_cells | (1<<cell)
 	
@@ -32,8 +38,9 @@ class CellArray:
 		filled_cells = filled_cells & (0<<cell)
 
 var grid_size: int
-var cells: PackedByteArray
-var solution: PackedByteArray
+var rows: Array[CellArray]
+var solution_rows: Array[CellArray]
+
 var all_marked: PackedByteArray
 var row_clues: Dictionary[int, Array]
 var col_clues: Dictionary[int, Array]
@@ -44,66 +51,66 @@ func _init(init_grid_size: int, initial_state: String) -> void:
 	grid_size = init_grid_size
 	
 	# initialize the puzzle that we'll use in normal play
-	cells = []
-	cells.resize(grid_size * grid_size)
-	cells.fill(Cell_State.EMPTY)
+	rows.resize(grid_size)
+	for i in range(0, grid_size):
+		rows[i] = CellArray.new(grid_size)
 	
 	# initialize the "solved" version of the puzzle
-	solution = []
-	solution.resize(grid_size * grid_size)
-	solution.fill(Cell_State.EMPTY)
-	
+	solution_rows.resize(grid_size)
+	for i in range(0, grid_size):
+		solution_rows[i] = CellArray.new(grid_size)
+
 	# set the "solved" state of the puzzle
 	_initialize_solution(initial_state)
 	
 	# add clues to the top and left side of the puzzle
 	_setup_clues()
 
-func is_cell_filled(cell_index: int) -> bool:
-	assert(cell_index >= 0 and cell_index < grid_size * grid_size, "Cell Index outside of grid bounds: %d" % cell_index)
-	return cells[cell_index] == Cell_State.FILLED
+func is_cell_filled(x: int, y: int) -> bool:
+	assert(is_valid_cell_index(x, y), 
+		"Cell Index outside of grid bounds: [%d, %d]" % [x,y])
+	return rows[y].is_cell_filled(x)
 	
-func is_cell_marked(cell_index: int) -> bool:
-	assert(cell_index >= 0 and cell_index < grid_size * grid_size, "Cell Index outside of grid bounds: %d" % cell_index)
-	return cells[cell_index] == Cell_State.MARKED
+func is_cell_marked(x: int, y: int) -> bool:
+	assert(is_valid_cell_index(x, y), 
+		"Cell Index outside of grid bounds: [%d, %d]" % [x,y])
+	return rows[y].is_cell_marked(x)
 
-func toggle_cell(cell_index: int) -> bool:
-	if !is_valid_cell_index(cell_index):
+func toggle_cell(x: int, y: int) -> bool:
+	if !is_valid_cell_index(x, y):
 		return false
-		
-	if cells[cell_index] == Cell_State.FILLED:
-		cells[cell_index] = Cell_State.EMPTY
+	
+	if rows[y].is_cell_filled(x):
+		rows[y].empty_cell(x)
 	else:
-		cells[cell_index] = Cell_State.FILLED
+		rows[y].fill_cell(x)
 	return true
 	
-func mark_cell(cell_index: int) -> bool:
-	if !is_valid_cell_index(cell_index):
+func mark_cell(x: int, y: int) -> bool:
+	if !is_valid_cell_index(x, y):
 		return false
 
-	cells[cell_index] = Cell_State.MARKED
+	rows[y].mark_cell(x)
 	return true
 	
-func unmark_cell(cell_index: int) -> bool:
-	if !is_valid_cell_index(cell_index):
+func unmark_cell(x: int, y: int) -> bool:
+	if !is_valid_cell_index(x, y):
 		return false
 
-	cells[cell_index] = Cell_State.EMPTY
+	rows[y].unmark_cell(x)
 	return true
 	
 func cell_index_from_location(x: int, y: int) -> int:
 	return x + (y * grid_size)
 
-func is_valid_cell_index(cell_index: int) -> bool:
-	if cell_index < 0:
-		return false
-		
-	return cell_index < grid_size * grid_size
+func is_valid_cell_index(x: int, y: int) -> bool:
+	return x >= 0 and x < grid_size and y >= 0 and y < grid_size
 	
 func is_solved() -> bool:
-	for i in range(0, grid_size * grid_size):
-		if (solution[i] & Cell_State.FILLED) & (cells[i] ^ solution[i]):
-			return false
+	for i in range(0, grid_size):
+		for j in range(0, grid_size):
+			if solution_rows[i].is_cell_filled(j) and !rows[i].is_cell_filled(j):
+				return false
 
 	return true
 
@@ -133,7 +140,7 @@ func _initialize_solution(solved_state: String) -> void:
 				elif next_char == 'x':
 					# starting from the current cell, fill the next <count> cells
 					for cell in range(0, count):
-						solution[cell_index_from_location(current_cell, row) + cell] = Cell_State.FILLED
+						solution_rows[row].fill_cell(current_cell + cell)
 					current_cell += 1
 				else:
 					assert(false, "Invalid character found %c" % next_char)
@@ -157,7 +164,7 @@ func _setup_clues() -> void:
 		var i := 0
 		var current_clue := 0
 		while i < grid_size:
-			if solution[cell_index_from_location(i, row)]:
+			if solution_rows[row].is_cell_filled(i):
 				current_clue += 1
 			elif current_clue > 0:
 				var current_count = _add_row_clue(row, current_clue)
@@ -180,7 +187,7 @@ func _setup_clues() -> void:
 		var i := 0
 		var current_clue := 0
 		while i < grid_size:
-			if solution[cell_index_from_location(col, i)]:
+			if solution_rows[i].is_cell_filled(col):
 				current_clue += 1
 			elif current_clue > 0:
 				var current_count = _add_col_clue(col, current_clue)
@@ -213,11 +220,11 @@ func _add_col_clue(key: int, clue: int) -> int:
 	col_clues[key].append(clue)
 	return col_clues[key].size()
 
-func _fill_cell(cell_index: int) -> bool:
-	if !is_valid_cell_index(cell_index):
+func _fill_cell(x: int, y: int) -> bool:
+	if !is_valid_cell_index(x, y):
 		return false
 	
-	cells[cell_index] = true
+	rows[y].fill_cell(x)
 	return true
 
 #endregion
