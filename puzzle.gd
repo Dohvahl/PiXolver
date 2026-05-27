@@ -31,6 +31,9 @@ class CellArray:
 	func empty_cell(cell: int) -> void:
 		filled_cells = filled_cells & ~(1<<cell)
 
+	func equals(other: CellArray) -> bool:
+		return filled_cells == other.filled_cells
+
 var grid_size: int
 var rows: Array[CellArray]
 var solution_rows: Array[CellArray]
@@ -102,11 +105,13 @@ func is_valid_cell_index(x: int, y: int) -> bool:
 
 func is_solved() -> bool:
 	for i in range(0, grid_size):
-		for j in range(0, grid_size):
-			if solution_rows[i].is_cell_filled(j) and !rows[i].is_cell_filled(j):
-				return false
+		if !is_row_solved(i):
+			return false
 
 	return true
+
+func is_row_solved(i: int) -> bool:
+	return solution_rows[i].equals(rows[i])
 
 #region "Private" Functions
 

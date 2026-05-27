@@ -119,6 +119,12 @@ func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2
 	if !clues or tracker.is_solved(iteration_direction, index):
 		return
 
+	# the current row/column may have been solved by previous iterations,
+	# so we should check it before we try to do any work to it
+	if _was_previously_solved(puzzle, index):
+		tracker.mark_solved(iteration_direction, index)
+		return
+
 	# Start by adding the clues and the spaces in between.
 	var leftover_cells = _distance_to_end(clues, puzzle.grid_size)
 
@@ -130,9 +136,11 @@ func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2
 
 	# If the sum is less than the largest clue in the row,
 	# then the row can be partially filled
-
 	elif leftover_cells <= tracker.get_largest_clue(iteration_direction, index):
 		_partial_fill(puzzle, iteration_direction * index, clues, leftover_cells, fill_direction)
+
+func _was_previously_solved(puzzle: Puzzle, index: int) -> bool:
+	return puzzle.is_row_solved(index)
 
 func _distance_to_end(clues: Array, grid_size: int) -> int:
 	# sum the clues
