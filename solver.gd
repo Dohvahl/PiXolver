@@ -1,5 +1,7 @@
 extends Node
 
+const INT_MIN := -2 ^ 63
+
 class Solver_Data:
 	# the largest clues in each row/col
 	var largest_row_clues : Array[int]
@@ -13,11 +15,27 @@ class Solver_Data:
 		-1: null, # initial dummy entry to set the Dictionary type
 	}
 
-	func _mark_row_solved(row_index: int) -> void:
-			solved_rows.set(row_index, null)
+	func get_largest_clue(iter_direction: Vector2i, index: int) -> int:
+		if iter_direction == Vector2i.DOWN:
+			return largest_row_clues[index]
+		elif iter_direction == Vector2i.RIGHT:
+			return largest_column_clues[index]
+		else:
+			return INT_MIN
 
-	func _mark_column_solved(column_index: int) -> void:
-			solved_columns.set(column_index, null)
+	func is_solved(iter_direction: Vector2i, index: int) -> int:
+		if iter_direction == Vector2i.DOWN:
+			return solved_rows.has(index)
+		elif iter_direction == Vector2i.RIGHT:
+			return solved_columns.has(index)
+		else:
+			return false
+
+	func mark_solved(iter_direction: Vector2i, index: int) -> void:
+		if iter_direction == Vector2i.DOWN:
+			solved_rows.set(index, null)
+		elif iter_direction == Vector2i.RIGHT:
+			solved_columns.set(index, null)
 
 
 @export var max_iterations := 5
@@ -70,10 +88,12 @@ func run(puzzle: Puzzle) -> void:
 	while !puzzle.is_solved():
 		# check each set of row and column clues
 		for row_index in range(0, puzzle.grid_size):
-			_try_solve_row(puzzle, row_index)
+			# try to solve the row
+			_try(puzzle, row_index,puzzle.row_clues.get(row_index), Vector2i.DOWN, Vector2i.RIGHT)
 
 		for column_index in range(0, puzzle.grid_size):
-			_try_solve_column(puzzle, column_index)
+			# try to solve the row
+			_try(puzzle, column_index, puzzle.col_clues.get(column_index), Vector2i.RIGHT, Vector2i.DOWN)
 
 		get_parent().queue_redraw()
 		iterations += 1
@@ -94,65 +114,25 @@ func run(puzzle: Puzzle) -> void:
 
 #region "Private" solver functions
 
-func _try_solve_row(puzzle: Puzzle, row_index: int) -> void:
-	var row_clues = puzzle.row_clues.get(row_index)
+func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2i, fill_direction: Vector2i) -> void:
 	# no clues for this row, or we've already solved it; skip to the next one
-	if !row_clues or tracker.solved_rows.has(row_index):
-		row_index += 1
+	if !clues or tracker.is_solved(iteration_direction, index):
 		return
 
 	# Start by adding the clues and the spaces in between.
-	var leftover_cells = _distance_to_end(row_clues, puzzle.grid_size)
+	var leftover_cells = _distance_to_end(clues, puzzle.grid_size)
 
 	# If the sum is the same as the grid size, then the entire row is filled
 	# by the clues
 	if leftover_cells == 0:
-		_fill(puzzle, Vector2i(0, row_index), row_clues, Vector2i.RIGHT)
-		tracker._mark_row_solved(row_index)
+		_fill(puzzle, iteration_direction * index, clues, fill_direction)
+		tracker.mark_solved(iteration_direction, index)
 
 	# If the sum is less than the largest clue in the row,
 	# then the row can be partially filled
-	elif leftover_cells <= tracker.largest_row_clues[row_index]:
-		var column := 0
-		for clue in row_clues:
-			if clue <= leftover_cells:
-				# we can't fill any cells for this clue
-				# skip passed it and the following space
-				column += clue + 1
-			else:
-				# we can partially fill in this clue's cells
-				column = _fill_n_cells(puzzle, Vector2i(column + leftover_cells, row_index), clue-leftover_cells, Vector2i.RIGHT).x
 
-func _try_solve_column(puzzle: Puzzle, column_index: int) -> void:
-	var column_clues = puzzle.col_clues.get(column_index)
-
-	# no clues for this column, or we've already solved it; skip to the next one
-	if !column_clues or tracker.solved_columns.has(column_index):
-		column_index += 1
-		return
-
-	# Start by adding the clues and the spaces in between.
-	var leftover_cells = _distance_to_end(column_clues, puzzle.grid_size)
-
-	# If the sum is the same as the grid size,
-	# the entire column is filled the clues
-	if leftover_cells == 0:
-		_fill(puzzle, Vector2i(column_index, 0), column_clues, Vector2i.DOWN)
-		tracker._mark_column_solved(column_index)
-
-	# If the sum is less than the largest clue in the column,
-	# the column can be partially filled
-	elif leftover_cells <= tracker.largest_column_clues[column_index]:
-		var row := 0
-		for clue in column_clues:
-			if clue <= leftover_cells:
-				# we can't fill any cells for this clue
-				# skip passed it and the following space
-				row += clue + 1
-			else:
-				# we can partially fill in this clue's cells
-				row = _fill_n_cells(puzzle, Vector2i(column_index, row + leftover_cells), clue-leftover_cells, Vector2i.DOWN).y
-
+	elif leftover_cells <= tracker.get_largest_clue(iteration_direction, index):
+		_partial_fill(puzzle, iteration_direction * index, clues, leftover_cells, fill_direction)
 
 func _distance_to_end(clues: Array, grid_size: int) -> int:
 	# sum the clues
@@ -175,6 +155,22 @@ func _fill(puzzle: Puzzle, starting_location: Vector2i, clues: Array, fill_direc
 		# because the column is filled by the clues, the next row
 		# is a space, so skip to the next row down
 		i += 1
+
+func _partial_fill(puzzle: Puzzle, starting_location: Vector2i, clues: Array, leftover_cells: int, fill_direction: Vector2i) -> void:
+	var i := 0
+	for clue in clues:
+		if clue <= leftover_cells:
+			# we can't fill any cells for this clue
+			# skip passed it and the following space
+			i += clue + 1
+		else:
+			# we can partially fill in this clue's cells
+			var offset = (i + leftover_cells) * fill_direction
+			var next_cell = _fill_n_cells(puzzle, starting_location + offset, clue-leftover_cells, fill_direction)
+			if fill_direction == Vector2i.RIGHT:
+				i = next_cell.x
+			elif fill_direction == Vector2i.DOWN:
+				i = next_cell.y
 
 
 # returns the cell the next cell after the fill.
