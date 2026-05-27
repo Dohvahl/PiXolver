@@ -110,7 +110,7 @@ func _try_solve_row(puzzle: Puzzle, row_index: int) -> void:
 		# fill in the row
 		var column := 0
 		for clue in row_clues:
-			column = _fill_n_cells(puzzle, Vector2i(column, row_index), clue, Vector2i.RIGHT).x
+			column = _fill_n_cells(puzzle, Vector2i(column, row_index), clue, Vector2i.RIGHT, true).x
 			# because the row is filled by the clues, the next column
 			# is a space, so skip to the next column over
 			column += 1
@@ -140,20 +140,20 @@ func _try_solve_column(puzzle: Puzzle, column_index: int) -> void:
 	# Start by adding the clues and the spaces in between.
 	var leftover_cells = _distance_to_end(column_clues, puzzle.grid_size)
 
-	# If the sum is the same as the grid size, then the entire column is filled
-	# by the clues
+	# If the sum is the same as the grid size,
+	# the entire column is filled the clues
 	if leftover_cells == 0:
 		# fill in the column
 		var row := 0
 		for clue in column_clues:
-			row = _fill_n_cells(puzzle, Vector2i(column_index, row), clue, Vector2i.DOWN).y
+			row = _fill_n_cells(puzzle, Vector2i(column_index, row), clue, Vector2i.DOWN, true).y
 			# because the column is filled by the clues, the next row
 			# is a space, so skip to the next row down
 			row += 1
 		tracker._mark_column_solved(column_index)
 
 	# If the sum is less than the largest clue in the column,
-	# then the column can be partially filled
+	# the column can be partially filled
 	elif leftover_cells <= tracker.largest_column_clues[column_index]:
 		var row := 0
 		for clue in column_clues:
@@ -177,12 +177,16 @@ func _distance_to_end(clues: Array, grid_size: int) -> int:
 
 # returns the cell the next cell after the fill.
 # this might be outside the bounds of the grid if this fills to the end of the row/column
-func _fill_n_cells(puzzle: Puzzle, starting_cell: Vector2i, n: int, fill_dir: Vector2i) -> Vector2i:
+func _fill_n_cells(puzzle: Puzzle, starting_cell: Vector2i, n: int, fill_dir: Vector2i, mark_next_cell: bool = false) -> Vector2i:
 	var count = 0
 	while count < n:
 		var current := Vector2i(starting_cell + (fill_dir * count))
 		puzzle._fill_cell(current.x, current.y)
 		count += 1
-	return Vector2i(starting_cell + (fill_dir * count))
+
+	var next_cell = Vector2i(starting_cell + (fill_dir * count))
+	if mark_next_cell:
+		puzzle.mark_cell(next_cell.x, next_cell.y)
+	return next_cell
 
 #endregion
