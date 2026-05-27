@@ -6,28 +6,28 @@ class CellArray:
 	var length : int		# number of cells in the row
 	var marked_cells : int	# bit-mask representing the marked cells
 	var filled_cells : int	# bit-mask representing the filled-in cells
-	
+
 	func _init(num_cells: int) -> void:
 		length = num_cells
 		marked_cells = 0
 		filled_cells = 0
-		
+
 	func is_cell_marked(cell: int) -> bool:
 		return marked_cells & (1<<cell)
-		
+
 	func is_cell_filled(cell: int) -> bool:
 		return filled_cells & (1<<cell)
-		
+
 	func mark_cell(cell: int) -> void:
 		marked_cells = marked_cells | (1<<cell)
-	
+
 	func unmark_cell(cell: int) -> void:
 		marked_cells = marked_cells & ~(1<<cell)
-	
+
 	func fill_cell(cell: int) -> void:
 		unmark_cell(cell)
 		filled_cells = filled_cells | (1<<cell)
-		
+
 	func empty_cell(cell: int) -> void:
 		filled_cells = filled_cells & ~(1<<cell)
 
@@ -61,12 +61,12 @@ func _init(init_grid_size: int, initial_state: String) -> void:
 	_setup_clues()
 
 func is_cell_filled(x: int, y: int) -> bool:
-	assert(is_valid_cell_index(x, y), 
+	assert(is_valid_cell_index(x, y),
 		"Cell Index outside of grid bounds: [%d, %d]" % [x,y])
 	return rows[y].is_cell_filled(x)
 
 func is_cell_marked(x: int, y: int) -> bool:
-	assert(is_valid_cell_index(x, y), 
+	assert(is_valid_cell_index(x, y),
 		"Cell Index outside of grid bounds: [%d, %d]" % [x,y])
 	return rows[y].is_cell_marked(x)
 
@@ -129,7 +129,7 @@ func _initialize_solution(solved_state: String) -> void:
 				index += result[1]
 			else:
 				# row_state[index] should be either a '-' or an 'x'
-				if next_char == '-': # empty cell(s)			
+				if next_char == '-': # empty cell(s)
 					current_cell += count
 				elif next_char == 'x':
 					# starting from the current cell, fill the next <count> cells

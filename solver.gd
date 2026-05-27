@@ -29,7 +29,7 @@ func run(puzzle: Puzzle) -> void:
 
 #region DEBUG Timer Start
 	# measuring the time to solve the puzzle
-	var start = Time.get_ticks_usec()
+	var start := Time.get_ticks_usec()
 #endregion
 
 	# run the solver until the puzzle is solved, but to keep it from getting
@@ -54,10 +54,7 @@ func run(puzzle: Puzzle) -> void:
 		print("FAILURE!")
 
 #region DEBUG Timer End
-	var end = Time.get_ticks_usec()
-	var solve_time = (end - start) / 1000000.0
-	print("Solution Time: %.6f microsec" % solve_time)
-
+	print("Solution Time: %d microsec" % (Time.get_ticks_usec()-start))
 #endregion
 
 #region "Private" solver functions
@@ -120,12 +117,12 @@ func _distance_to_end(clues: Array, grid_size: int) -> int:
 
 # returns the cell the next cell after the fill.
 # this might be outside the bounds of the grid if this fills to the end of the row/column
-func _fill_n_cells(puzzle: Puzzle, starting_cell: Vector2i, n: int, increment_dir: Vector2i) -> Vector2i:
+func _fill_n_cells(puzzle: Puzzle, starting_cell: Vector2i, n: int, fill_dir: Vector2i) -> Vector2i:
 	var count = 0
 	while count < n:
-		var current := Vector2i(starting_cell + (increment_dir * count))
+		var current := Vector2i(starting_cell + (fill_dir * count))
 		puzzle._fill_cell(current.x, current.y)
 		count += 1
-	return Vector2i(starting_cell + (increment_dir * count))
+	return Vector2i(starting_cell + (fill_dir * count))
 
 #endregion
