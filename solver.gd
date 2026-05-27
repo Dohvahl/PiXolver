@@ -107,13 +107,7 @@ func _try_solve_row(puzzle: Puzzle, row_index: int) -> void:
 	# If the sum is the same as the grid size, then the entire row is filled
 	# by the clues
 	if leftover_cells == 0:
-		# fill in the row
-		var column := 0
-		for clue in row_clues:
-			column = _fill_n_cells(puzzle, Vector2i(column, row_index), clue, Vector2i.RIGHT, true).x
-			# because the row is filled by the clues, the next column
-			# is a space, so skip to the next column over
-			column += 1
+		_fill(puzzle, Vector2i(0, row_index), row_clues, Vector2i.RIGHT)
 		tracker._mark_row_solved(row_index)
 
 	# If the sum is less than the largest clue in the row,
@@ -143,13 +137,7 @@ func _try_solve_column(puzzle: Puzzle, column_index: int) -> void:
 	# If the sum is the same as the grid size,
 	# the entire column is filled the clues
 	if leftover_cells == 0:
-		# fill in the column
-		var row := 0
-		for clue in column_clues:
-			row = _fill_n_cells(puzzle, Vector2i(column_index, row), clue, Vector2i.DOWN, true).y
-			# because the column is filled by the clues, the next row
-			# is a space, so skip to the next row down
-			row += 1
+		_fill(puzzle, Vector2i(column_index, 0), column_clues, Vector2i.DOWN)
 		tracker._mark_column_solved(column_index)
 
 	# If the sum is less than the largest clue in the column,
@@ -174,6 +162,20 @@ func _distance_to_end(clues: Array, grid_size: int) -> int:
 	# the number of spaces is the number of n-1, where n is the number of clues
 	var spaces = clues.size() - 1
 	return grid_size - (sum + spaces)
+
+func _fill(puzzle: Puzzle, starting_location: Vector2i, clues: Array, fill_direction: Vector2i) -> void:
+	# fill in the row/column
+	var i := 0
+	for clue in clues:
+		var next_cell = _fill_n_cells(puzzle, starting_location + (i * fill_direction), clue, fill_direction, true)
+		if fill_direction == Vector2i.RIGHT:
+			i = next_cell.x
+		elif fill_direction == Vector2i.DOWN:
+			i = next_cell.y
+		# because the column is filled by the clues, the next row
+		# is a space, so skip to the next row down
+		i += 1
+
 
 # returns the cell the next cell after the fill.
 # this might be outside the bounds of the grid if this fills to the end of the row/column
