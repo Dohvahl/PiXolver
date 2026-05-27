@@ -1,6 +1,10 @@
 extends Node
 
 class Solver_Data:
+	# the largest clues in each row/col
+	var largest_row_clues : Array[int]
+	var largest_column_clues : Array[int]
+
 	# "Sets" to track what we've already solved
 	var solved_rows := {
 		-1: null, # initial dummy entry to set the Dictionary type
@@ -16,21 +20,49 @@ class Solver_Data:
 			solved_columns.set(column_index, null)
 
 
-
 @export var max_iterations := 5
 var tracker : Solver_Data
 
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
 	tracker = Solver_Data.new()
-	pass
 
 func run(puzzle: Puzzle) -> void:
+#region PreProcess
+#region DEBUG PreProcess Timer Start
+	# measure how long the preprocessing takes
+	var preprocess_start = Time.get_ticks_usec()
+#endregion DEBUG PreProcess Timer Start
 
-#region DEBUG Timer Start
+	tracker.largest_row_clues.resize(puzzle.grid_size)
+	tracker.largest_column_clues.resize(puzzle.grid_size)
+
+	# preprocess the puzzle to get some basic information
+	for i in range(0, puzzle.grid_size):
+		var row_clues = Array(puzzle.row_clues.get(i))
+		var column_clues = Array(puzzle.col_clues.get(i))
+
+		if row_clues:
+			var max_clue = row_clues.max()
+			assert(max_clue != null, "Invalid row clues")
+			tracker.largest_row_clues[i] = max_clue
+
+		if column_clues:
+			var max_clue = column_clues.max()
+			assert(max_clue != null, "Invalid column clues")
+			tracker.largest_column_clues[i] = max_clue
+
+#region DEBUG PreProcess Timer End
+	var preprocess_end = Time.get_ticks_usec()
+	print("PreProcess Time: %d microsec" % (preprocess_end-preprocess_start))
+#endregion DEBUG PreProcess Timer End
+#endregion PreProcess
+
+#region Solution
+#region DEBUG Solve Timer Start
 	# measuring the time to solve the puzzle
-	var start := Time.get_ticks_usec()
-#endregion
+	var solution_start := Time.get_ticks_usec()
+#endregion DEBUG Solve Timer Start
 
 	# run the solver until the puzzle is solved, but to keep it from getting
 	# into an infinite loop, we cap the number of iterations
@@ -53,9 +85,12 @@ func run(puzzle: Puzzle) -> void:
 	else:
 		print("FAILURE!")
 
-#region DEBUG Timer End
-	print("Solution Time: %d microsec" % (Time.get_ticks_usec()-start))
-#endregion
+#region DEBUG Solve Timer End
+	var solution_end = Time.get_ticks_usec()
+	print("Solution Time: %d microsec" % (solution_end-solution_start))
+#endregion Solve Timer End
+#endregion Solution
+
 
 #region "Private" solver functions
 
@@ -79,8 +114,20 @@ func _try_solve_row(puzzle: Puzzle, row_index: int) -> void:
 			# because the row is filled by the clues, the next column
 			# is a space, so skip to the next column over
 			column += 1
-
 		tracker._mark_row_solved(row_index)
+
+	# If the sum is less than the largest clue in the row,
+	# then the row can be partially filled
+	elif leftover_cells <= tracker.largest_row_clues[row_index]:
+		var column := 0
+		for clue in row_clues:
+			if clue <= leftover_cells:
+				# we can't fill any cells for this clue
+				# skip passed it and the following space
+				column += clue + 1
+			else:
+				# we can partially fill in this clue's cells
+				column = _fill_n_cells(puzzle, Vector2i(column + leftover_cells, row_index), clue-leftover_cells, Vector2i.RIGHT).x
 
 func _try_solve_column(puzzle: Puzzle, column_index: int) -> void:
 	var column_clues = puzzle.col_clues.get(column_index)
@@ -103,8 +150,21 @@ func _try_solve_column(puzzle: Puzzle, column_index: int) -> void:
 			# because the column is filled by the clues, the next row
 			# is a space, so skip to the next row down
 			row += 1
-
 		tracker._mark_column_solved(column_index)
+
+	# If the sum is less than the largest clue in the column,
+	# then the column can be partially filled
+	elif leftover_cells <= tracker.largest_column_clues[column_index]:
+		var row := 0
+		for clue in column_clues:
+			if clue <= leftover_cells:
+				# we can't fill any cells for this clue
+				# skip passed it and the following space
+				row += clue + 1
+			else:
+				# we can partially fill in this clue's cells
+				row = _fill_n_cells(puzzle, Vector2i(column_index, row + leftover_cells), clue-leftover_cells, Vector2i.DOWN).y
+
 
 func _distance_to_end(clues: Array, grid_size: int) -> int:
 	# sum the clues
