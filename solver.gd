@@ -100,15 +100,17 @@ func run(puzzle: Puzzle) -> void:
 		if iterations >= max_iterations:
 			break
 
-	if puzzle.is_solved():
-		print("We did it!")
-	else:
-		print("FAILURE!")
-
 #region DEBUG Solve Timer End
 	var solution_end = Time.get_ticks_usec()
 	print("Solution Time: %d microsec" % (solution_end-solution_start))
 #endregion Solve Timer End
+
+	if puzzle.is_solved():
+		print("We did it!")
+	else:
+		print("FAILURE!")
+	print("Iterations: %d" % iterations)
+
 #endregion Solution
 
 
@@ -121,7 +123,7 @@ func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2
 
 	# the current row/column may have been solved by previous iterations,
 	# so we should check it before we try to do any work to it
-	if _was_previously_solved(puzzle, index):
+	if _was_previously_solved(puzzle, index, iteration_direction):
 		tracker.mark_solved(iteration_direction, index)
 		return
 
@@ -139,8 +141,13 @@ func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2
 	elif leftover_cells <= tracker.get_largest_clue(iteration_direction, index):
 		_partial_fill(puzzle, iteration_direction * index, clues, leftover_cells, fill_direction)
 
-func _was_previously_solved(puzzle: Puzzle, index: int) -> bool:
-	return puzzle.is_row_solved(index)
+func _was_previously_solved(puzzle: Puzzle, index: int, iter_direction: Vector2i) -> bool:
+	if iter_direction == Vector2i.DOWN:
+		return puzzle.is_row_solved(index)
+	elif iter_direction == Vector2i.RIGHT:
+		return puzzle.is_column_solved(index)
+	else:
+		return false
 
 func _distance_to_end(clues: Array, grid_size: int) -> int:
 	# sum the clues

@@ -36,7 +36,9 @@ class CellArray:
 
 var grid_size: int
 var rows: Array[CellArray]
+var columns: Array[CellArray]
 var solution_rows: Array[CellArray]
+var solution_columns: Array[CellArray]
 
 var all_marked: PackedByteArray
 var row_clues: Dictionary[int, Array]
@@ -49,13 +51,17 @@ func _init(init_grid_size: int, initial_state: String) -> void:
 
 	# initialize the puzzle that we'll use in normal play
 	rows.resize(grid_size)
+	columns.resize(grid_size)
 	for i in range(0, grid_size):
 		rows[i] = CellArray.new(grid_size)
+		columns[i] = CellArray.new(grid_size)
 
 	# initialize the "solved" version of the puzzle
 	solution_rows.resize(grid_size)
+	solution_columns.resize(grid_size)
 	for i in range(0, grid_size):
 		solution_rows[i] = CellArray.new(grid_size)
+		solution_columns[i] = CellArray.new(grid_size)
 
 	# set the "solved" state of the puzzle
 	_initialize_solution(initial_state)
@@ -113,6 +119,9 @@ func is_solved() -> bool:
 func is_row_solved(i: int) -> bool:
 	return solution_rows[i].equals(rows[i])
 
+func is_column_solved(i: int) -> bool:
+	return solution_columns[i].equals(columns[i])
+
 #region "Private" Functions
 
 func _initialize_solution(solved_state: String) -> void:
@@ -140,6 +149,7 @@ func _initialize_solution(solved_state: String) -> void:
 					# starting from the current cell, fill the next <count> cells
 					for cell in range(0, count):
 						solution_rows[row].fill_cell(current_cell + cell)
+						solution_columns[current_cell + cell].fill_cell(row)
 					current_cell += 1
 				else:
 					assert(false, "Invalid character found %c" % next_char)
@@ -223,6 +233,7 @@ func _fill_cell(x: int, y: int) -> bool:
 		return false
 
 	rows[y].fill_cell(x)
+	columns[x].fill_cell(y)
 	return true
 
 #endregion
