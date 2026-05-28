@@ -7,6 +7,9 @@ var puzzle : Puzzle							# data representation of the puzzle
 var _total_width							# grid width + row clues area width
 var _total_height							# grid height + column clues area height
 
+var solved_color = Color.CHARTREUSE
+var unsolved_color = Color.NAVY_BLUE
+
 const CELL_SIZE := 32						# pixels per cell
 var FONT_OFFSET := int((CELL_SIZE + ThemeDB.fallback_font_size) / 2)
 
@@ -90,6 +93,7 @@ func _input(event: InputEvent) -> void:
 
 func _draw_row_clues() -> void:
 	for row_index in range(0, grid_size):
+		var clue_color = solved_color if puzzle.is_row_solved(row_index) else unsolved_color
 		var clues_var = puzzle.row_clues.get(row_index)
 		if !clues_var:
 			# draw a '0'
@@ -100,7 +104,7 @@ func _draw_row_clues() -> void:
 					clue_position - Vector2(0, FONT_OFFSET),
 					Vector2(CELL_SIZE, CELL_SIZE)
 				)
-				draw_rect(clue_rect, Color.GREEN, false, 1.0)
+				draw_rect(clue_rect, clue_color, false, 1.0)
 
 			draw_string(ThemeDB.fallback_font, _get_row_clue_position(row_index, 1), "0", HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE)
 			continue
@@ -116,13 +120,14 @@ func _draw_row_clues() -> void:
 					clue_position - Vector2(0, FONT_OFFSET),
 					Vector2(CELL_SIZE, CELL_SIZE)
 				)
-				draw_rect(clue_rect, Color.GREEN, false, 1.0)
+				draw_rect(clue_rect, clue_color, false, 1.0)
 
 			draw_string(ThemeDB.fallback_font, clue_position, str(clues[clues.size() - i - 1]), HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE)
 			i += 1
 
 func _draw_column_clues() -> void:
 	for col_index in range(0, grid_size):
+		var clue_color = solved_color if puzzle.is_column_solved(col_index) else unsolved_color
 		var clues_var = puzzle.col_clues.get(col_index)
 		if !clues_var:
 			# draw a '0'
@@ -133,7 +138,7 @@ func _draw_column_clues() -> void:
 					clue_position,
 					Vector2i(CELL_SIZE, CELL_SIZE)
 				)
-				draw_rect(clue_rect, Color.GREEN, false, 1.0)
+				draw_rect(clue_rect, clue_color, false, 1.0)
 
 			draw_string(ThemeDB.fallback_font, clue_position, "0", HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE)
 			continue
@@ -149,7 +154,7 @@ func _draw_column_clues() -> void:
 					clue_position - Vector2(0, FONT_OFFSET),
 					Vector2i(CELL_SIZE, CELL_SIZE)
 				)
-				draw_rect(clue_rect, Color.GREEN, false, 1.0)
+				draw_rect(clue_rect, clue_color, false, 1.0)
 
 			draw_string(ThemeDB.fallback_font, clue_position, str(clues[clues.size() - 1 - i]), HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE)
 			i += 1
