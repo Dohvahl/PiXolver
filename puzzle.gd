@@ -31,6 +31,9 @@ class CellArray:
 	func empty_cell(cell: int) -> void:
 		filled_cells = filled_cells & ~(1<<cell)
 
+	func mark_empty_cells() -> void:
+		marked_cells = ~filled_cells
+
 	func equals(other: CellArray) -> bool:
 		return filled_cells == other.filled_cells
 
@@ -102,6 +105,18 @@ func unmark_cell(x: int, y: int) -> bool:
 
 	rows[y].unmark_cell(x)
 	return true
+
+func mark_empty_cells(index: int, iter_direction: Vector2i) -> void:
+	if iter_direction == Vector2i.DOWN: # row
+		rows[index].mark_empty_cells()
+		for i in range(0, grid_size):
+			if !columns[i].is_cell_filled(index):
+				columns[i].mark_cell(index)
+	if iter_direction == Vector2i.RIGHT: # column
+		columns[index].mark_empty_cells()
+		for i in range(0, grid_size):
+			if !rows[i].is_cell_filled(index):
+				rows[i].mark_cell(index)
 
 func cell_index_from_location(x: int, y: int) -> int:
 	return x + (y * grid_size)

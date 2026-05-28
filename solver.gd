@@ -125,6 +125,9 @@ func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2
 	# so we should check it before we try to do any work to it
 	if _was_previously_solved(puzzle, index, iteration_direction):
 		tracker.mark_solved(iteration_direction, index)
+
+		# ensure the empty cells are marked
+		puzzle.mark_empty_cells(index, iteration_direction)
 		return
 
 	# Start by adding the clues and the spaces in between.
