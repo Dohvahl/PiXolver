@@ -46,6 +46,11 @@ func is_cell_marked(x: int, y: int) -> bool:
 		"Cell Index outside of grid bounds: [%d, %d]" % [x,y])
 	return rows[y].is_cell_marked(x)
 
+func is_cell_empty(x: int, y: int) -> bool:
+	assert(is_valid_cell_index(x, y),
+		"Cell Index outside of grid bounds: [%d, %d]" % [x,y])
+	return !rows[y].is_cell_marked(x) && !rows[y].is_cell_filled(x)
+
 func toggle_cell(x: int, y: int) -> bool:
 	if !is_valid_cell_index(x, y):
 		return false
@@ -74,14 +79,14 @@ func unmark_cell(x: int, y: int) -> bool:
 	columns[x].unmark_cell(y)
 	return true
 
-func mark_empty_cells(index: int, iter_direction: Vector2i) -> void:
-	if iter_direction == Vector2i.DOWN: # row
+func mark_empty_cells(index: int, fill_direction: Vector2i) -> void:
+	if fill_direction == Vector2i.RIGHT: # row
 		rows[index].mark_empty_cells()
 		for i in range(0, grid_size):
 			if !columns[i].is_cell_filled(index):
 				columns[i].mark_cell(index)
-	if iter_direction == Vector2i.RIGHT: # column
 		columns[index].mark_empty_cells()
+	if fill_direction == Vector2i.DOWN: # column
 		for i in range(0, grid_size):
 			if !rows[i].is_cell_filled(index):
 				rows[i].mark_cell(index)

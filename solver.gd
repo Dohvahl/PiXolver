@@ -86,13 +86,16 @@ func run(puzzle: Puzzle) -> void:
 	# into an infinite loop, we cap the number of iterations
 	var iterations := 0
 	while !puzzle.is_solved():
+		print("\n*** DEBUG *** Iteration %d *** DEBUG ***" % iterations)
 		# check each set of row and column clues
 		for row_index in range(0, puzzle.grid_size):
 			# try to solve the row
+			print("Attempting to solve row %d" % row_index)
 			_try(puzzle, row_index,puzzle.row_clues.get(row_index), Vector2i.DOWN, Vector2i.RIGHT)
 
 		for column_index in range(0, puzzle.grid_size):
-			# try to solve the row
+			# try to solve the column
+			print("Attempting to solve column %d" % column_index)
 			_try(puzzle, column_index, puzzle.col_clues.get(column_index), Vector2i.RIGHT, Vector2i.DOWN)
 
 		get_parent().queue_redraw()
@@ -127,7 +130,7 @@ func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2
 		tracker.mark_solved(iteration_direction, index)
 
 		# ensure the empty cells are marked
-		puzzle.mark_empty_cells(index, iteration_direction)
+		puzzle.mark_empty_cells(index, fill_direction)
 		return
 
 	# Start by adding the clues and the spaces in between.
@@ -138,11 +141,25 @@ func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2
 	if leftover_cells == 0:
 		_fill(puzzle, iteration_direction * index, clues, fill_direction)
 		tracker.mark_solved(iteration_direction, index)
+		return
 
 	# If the sum is less than the largest clue in the row,
 	# then the row can be partially filled
 	elif leftover_cells <= tracker.get_largest_clue(iteration_direction, index):
 		_partial_fill(puzzle, iteration_direction * index, clues, leftover_cells, fill_direction)
+
+	# search through the cells
+	var cell = (iteration_direction * index)
+	while puzzle.is_valid_cell_index(cell.x, cell.y):
+		# if the cell is marked, skip over it
+		if puzzle.is_cell_marked(cell.x, cell.y):
+			cell += fill_direction
+			continue
+
+		# we need to compare the empty and filled cells against the remaining clues
+		print("Looking at cell %s" % cell)
+		cell += fill_direction
+
 
 func _was_previously_solved(puzzle: Puzzle, index: int, iter_direction: Vector2i) -> bool:
 	if iter_direction == Vector2i.DOWN:
