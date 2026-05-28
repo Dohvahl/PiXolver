@@ -133,6 +133,14 @@ func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2
 		puzzle.mark_empty_cells(index, fill_direction)
 		return
 
+	# previous iterations may have marked cells at the start or end,
+	# these can be skipped
+	var marked_start = 0
+	var offset = iteration_direction * index
+	while puzzle.is_cell_marked(offset.x, offset.y):
+		marked_start += 1
+		offset += (fill_direction * marked_start)
+
 	# Start by adding the clues and the spaces in between.
 	var leftover_cells = _distance_to_end(clues, puzzle.grid_size)
 
@@ -148,17 +156,25 @@ func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2
 	elif leftover_cells <= tracker.get_largest_clue(iteration_direction, index):
 		_partial_fill(puzzle, iteration_direction * index, clues, leftover_cells, fill_direction)
 
-	# search through the cells
-	var cell = (iteration_direction * index)
-	while puzzle.is_valid_cell_index(cell.x, cell.y):
-		# if the cell is marked, skip over it
-		if puzzle.is_cell_marked(cell.x, cell.y):
-			cell += fill_direction
-			continue
-
-		# we need to compare the empty and filled cells against the remaining clues
-		print("Looking at cell %s" % cell)
-		cell += fill_direction
+	## search through the cells
+	#var cell = (iteration_direction * index)
+	#while puzzle.is_valid_cell_index(cell.x, cell.y):
+		## if the cell is marked, skip over it
+		#if puzzle.is_cell_marked(cell.x, cell.y):
+			#cell += fill_direction
+			#continue
+#
+		## we need to compare the empty and filled cells against the remaining clues
+		#print("Looking at cell %s" % cell)
+		#if puzzle.is_cell_filled(cell.x, cell.y):
+			## figure out how many cells are in this block
+			#var i = 0
+			#var next_cell = cell + (fill_direction * i)
+			#while puzzle.is_cell_filled(next_cell.x, next_cell.y):
+				#i += 1
+				#next_cell = cell + (fill_direction * i)
+#
+		#cell += fill_direction
 
 
 func _was_previously_solved(puzzle: Puzzle, index: int, iter_direction: Vector2i) -> bool:
