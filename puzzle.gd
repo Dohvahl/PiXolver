@@ -52,8 +52,10 @@ func toggle_cell(x: int, y: int) -> bool:
 
 	if rows[y].is_cell_filled(x):
 		rows[y].empty_cell(x)
+		columns[x].empty_cell(y)
 	else:
 		rows[y].fill_cell(x)
+		columns[x].fill_cell(y)
 	return true
 
 func mark_cell(x: int, y: int) -> bool:
@@ -61,6 +63,7 @@ func mark_cell(x: int, y: int) -> bool:
 		return false
 
 	rows[y].mark_cell(x)
+	columns[x].mark_cell(y)
 	return true
 
 func unmark_cell(x: int, y: int) -> bool:
@@ -68,6 +71,7 @@ func unmark_cell(x: int, y: int) -> bool:
 		return false
 
 	rows[y].unmark_cell(x)
+	columns[x].unmark_cell(y)
 	return true
 
 func mark_empty_cells(index: int, iter_direction: Vector2i) -> void:
@@ -156,6 +160,7 @@ func _setup_clues() -> void:
 				current_clue += 1
 			elif current_clue > 0:
 				var current_count = _add_row_clue(row, current_clue)
+				solution_rows[row].record_clue(current_count-1, i-current_clue, current_clue)
 				if current_count > current_max:
 					current_max = current_count
 				current_clue = 0
@@ -164,6 +169,7 @@ func _setup_clues() -> void:
 		# we may have made it to the end of the row with clues, so we need to add those here
 		if current_clue > 0:
 			var current_count = _add_row_clue(row, current_clue)
+			solution_rows[row].record_clue(current_count-1, i-current_clue, current_clue)
 			if current_count > current_max:
 				current_max	= current_count
 
@@ -179,6 +185,7 @@ func _setup_clues() -> void:
 				current_clue += 1
 			elif current_clue > 0:
 				var current_count = _add_col_clue(col, current_clue)
+				solution_columns[col].record_clue(current_count-1, i-current_clue, current_clue)
 				if current_count > current_max:
 					current_max = current_count
 				current_clue = 0
@@ -187,6 +194,7 @@ func _setup_clues() -> void:
 		# we may have made it to the end of the row with clues, so we need to add those here
 		if current_clue > 0:
 			var current_count = _add_col_clue(col, current_clue)
+			solution_columns[col].record_clue(current_count-1, i-current_clue, current_clue)
 			if current_count > current_max:
 				current_max	= current_count
 
