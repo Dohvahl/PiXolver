@@ -46,6 +46,24 @@ func _ready() -> void:
 	tracker = Solver_Data.new()
 
 func run(puzzle: Puzzle) -> void:
+	# run the solver until the puzzle is solved, but to keep it from getting
+	# into an infinite loop, we cap the number of iterations
+	var iterations := 0
+	while !puzzle.is_solved():
+		run_single(puzzle, iterations)
+		iterations += 1
+		if iterations >= max_iterations:
+			break
+
+	if puzzle.is_solved():
+		print("We did it!")
+	else:
+		print("FAILURE!")
+	print("Iterations: %d" % iterations)
+
+
+func run_single(puzzle: Puzzle, iterations: int) -> void:
+	print("\n*** DEBUG *** Iteration %d *** DEBUG ***" % iterations)
 #region PreProcess
 #region DEBUG PreProcess Timer Start
 	# measure how long the preprocessing takes
@@ -82,37 +100,21 @@ func run(puzzle: Puzzle) -> void:
 	var solution_start := Time.get_ticks_usec()
 #endregion DEBUG Solve Timer Start
 
-	# run the solver until the puzzle is solved, but to keep it from getting
-	# into an infinite loop, we cap the number of iterations
-	var iterations := 0
-	while !puzzle.is_solved():
-		print("\n*** DEBUG *** Iteration %d *** DEBUG ***" % iterations)
-		# check each set of row and column clues
-		for row_index in range(0, puzzle.grid_size):
-			# try to solve the row
-			print("Attempting to solve row %d" % row_index)
-			_try(puzzle, row_index,puzzle.row_clues.get(row_index), Vector2i.DOWN, Vector2i.RIGHT)
+	# check each set of row and column clues
+	for row_index in range(0, puzzle.grid_size):
+		# try to solve the row
+		#print("Attempting to solve row %d" % row_index)
+		_try(puzzle, row_index,puzzle.row_clues.get(row_index), Vector2i.DOWN, Vector2i.RIGHT)
 
-		for column_index in range(0, puzzle.grid_size):
-			# try to solve the column
-			print("Attempting to solve column %d" % column_index)
-			_try(puzzle, column_index, puzzle.col_clues.get(column_index), Vector2i.RIGHT, Vector2i.DOWN)
-
-		get_parent().queue_redraw()
-		iterations += 1
-		if iterations >= max_iterations:
-			break
+	for column_index in range(0, puzzle.grid_size):
+		# try to solve the column
+		#print("Attempting to solve column %d" % column_index)
+		_try(puzzle, column_index, puzzle.col_clues.get(column_index), Vector2i.RIGHT, Vector2i.DOWN)
 
 #region DEBUG Solve Timer End
 	var solution_end = Time.get_ticks_usec()
 	print("Solution Time: %d microsec" % (solution_end-solution_start))
 #endregion Solve Timer End
-
-	if puzzle.is_solved():
-		print("We did it!")
-	else:
-		print("FAILURE!")
-	print("Iterations: %d" % iterations)
 
 #endregion Solution
 
@@ -135,26 +137,26 @@ func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2
 
 	# previous iterations may have marked cells at the start or end,
 	# these can be skipped
-	var marked_start = 0
-	var offset = iteration_direction * index
-	while puzzle.is_cell_marked(offset.x, offset.y):
-		marked_start += 1
-		offset += (fill_direction * marked_start)
+	var start_offset := 0
+	var starting_cell := iteration_direction * index
+	while puzzle.is_cell_marked(starting_cell.x, starting_cell.y):
+		start_offset += 1
+		starting_cell += fill_direction
 
 	# Start by adding the clues and the spaces in between.
-	var leftover_cells = _distance_to_end(clues, puzzle.grid_size)
+	var leftover_cells = _distance_to_end(clues, puzzle.grid_size - start_offset)
 
 	# If the sum is the same as the grid size, then the entire row is filled
 	# by the clues
 	if leftover_cells == 0:
-		_fill(puzzle, iteration_direction * index, clues, fill_direction)
+		_fill(puzzle, (iteration_direction * index) + (fill_direction * start_offset), clues, fill_direction)
 		tracker.mark_solved(iteration_direction, index)
 		return
 
 	# If the sum is less than the largest clue in the row,
 	# then the row can be partially filled
 	elif leftover_cells <= tracker.get_largest_clue(iteration_direction, index):
-		_partial_fill(puzzle, iteration_direction * index, clues, leftover_cells, fill_direction)
+		_partial_fill(puzzle, (iteration_direction * index) + (fill_direction * start_offset), clues, leftover_cells, fill_direction)
 
 	## search through the cells
 	#var cell = (iteration_direction * index)

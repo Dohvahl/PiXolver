@@ -65,6 +65,7 @@ func _draw() -> void:
 		$Message.text = "Solved!"
 		$Message.show()
 
+var iterations = 1
 func _input(event: InputEvent) -> void:
 	if solved:
 		return
@@ -86,6 +87,11 @@ func _input(event: InputEvent) -> void:
 				queue_redraw()
 	elif event.is_action_pressed("run_solver"):
 		solver.run(puzzle)
+		queue_redraw()
+	elif event.is_action_pressed("run_solver_single"):
+		solver.run_single(puzzle, iterations)
+		iterations += 1
+		queue_redraw()
 
 #region "Private" functions
 
