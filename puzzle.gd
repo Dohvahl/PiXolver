@@ -116,12 +116,16 @@ func _initialize_solution(solved_state: String) -> void:
 	# setup needed variables
 	var count := 0
 	var row := 0
+	var filled := false
 
 	# iterate over each row state
 	var row_states := solved_state.split("/")
 	for row_state in row_states:
 		var index := 0
 		var current_cell := 0
+		# the first digit is either 1 or 0, if the first cell is filled or not, respectively
+		filled = int(row_state[0])
+		index += 2
 		while index < row_state.length():
 			var next_char := row_state[index]
 			if next_char.is_valid_int():
@@ -130,17 +134,16 @@ func _initialize_solution(solved_state: String) -> void:
 				count = result[0]
 				index += result[1]
 			else:
-				# row_state[index] should be either a '-' or an 'x'
-				if next_char == '-': # empty cell(s)
+				# row_state[index] should be a ','
+				if !filled: # empty cell(s)
 					current_cell += count
-				elif next_char == 'x':
+				else:
 					# starting from the current cell, fill the next <count> cells
 					for cell in range(0, count):
 						solution_rows[row].fill_cell(current_cell + cell)
 						solution_columns[current_cell + cell].fill_cell(row)
 					current_cell += 1
-				else:
-					assert(false, "Invalid character found %c" % next_char)
+				filled = !filled
 				count = 0
 				index += 1
 		row += 1
