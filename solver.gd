@@ -61,7 +61,6 @@ func run(puzzle: Puzzle) -> void:
 		print("FAILURE!")
 	print("Iterations: %d" % iterations)
 
-
 func run_single(puzzle: Puzzle, iterations: int) -> void:
 	print("\n*** DEBUG *** Iteration %d *** DEBUG ***" % iterations)
 #region PreProcess
@@ -143,8 +142,14 @@ func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2
 		start_offset += 1
 		starting_cell += fill_direction
 
+	var end_offset := 0
+	var end_cell := (iteration_direction * index) + (fill_direction * (puzzle.grid_size - 1))
+	while puzzle.is_cell_marked(end_cell.x, end_cell.y):
+		end_offset += 1
+		end_cell -= fill_direction
+
 	# Start by adding the clues and the spaces in between.
-	var leftover_cells = _distance_to_end(clues, puzzle.grid_size - start_offset)
+	var leftover_cells = _distance_to_end(clues, puzzle.grid_size - start_offset - end_offset)
 
 	# If the sum is the same as the grid size, then the entire row is filled
 	# by the clues
@@ -157,27 +162,6 @@ func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2
 	# then the row can be partially filled
 	elif leftover_cells <= tracker.get_largest_clue(iteration_direction, index):
 		_partial_fill(puzzle, (iteration_direction * index) + (fill_direction * start_offset), clues, leftover_cells, fill_direction)
-
-	## search through the cells
-	#var cell = (iteration_direction * index)
-	#while puzzle.is_valid_cell_index(cell.x, cell.y):
-		## if the cell is marked, skip over it
-		#if puzzle.is_cell_marked(cell.x, cell.y):
-			#cell += fill_direction
-			#continue
-#
-		## we need to compare the empty and filled cells against the remaining clues
-		#print("Looking at cell %s" % cell)
-		#if puzzle.is_cell_filled(cell.x, cell.y):
-			## figure out how many cells are in this block
-			#var i = 0
-			#var next_cell = cell + (fill_direction * i)
-			#while puzzle.is_cell_filled(next_cell.x, next_cell.y):
-				#i += 1
-				#next_cell = cell + (fill_direction * i)
-#
-		#cell += fill_direction
-
 
 func _was_previously_solved(puzzle: Puzzle, index: int, iter_direction: Vector2i) -> bool:
 	if iter_direction == Vector2i.DOWN:
