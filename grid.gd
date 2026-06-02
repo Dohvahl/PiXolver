@@ -90,10 +90,10 @@ func _input(event: InputEvent) -> void:
 			elif puzzle.mark_cell(cell_clicked.x, cell_clicked.y):
 				queue_redraw()
 	elif event.is_action_pressed("run_solver"):
-		solver.run(puzzle)
+		solver.run(puzzle, true)
 		queue_redraw()
 	elif event.is_action_pressed("run_solver_single"):
-		solver.run_single(puzzle, iterations)
+		solver.run_single(puzzle, iterations, true)
 		iterations += 1
 		queue_redraw()
 

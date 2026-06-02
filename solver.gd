@@ -53,7 +53,7 @@ func run(puzzle: Puzzle, debug: bool = false) -> bool:
 	var iterations := 1
 	while !puzzle.is_solved():
 		if !run_single(puzzle, iterations, debug):
-			return false
+			break
 		iterations += 1
 		if iterations >= max_iterations:
 			break
@@ -116,20 +116,20 @@ func run_single(puzzle: Puzzle, iterations: int, debug: bool = false) -> bool:
 		#print("Attempting to solve column %d" % column_index)
 		_try(puzzle, column_index, puzzle.col_clues.get(column_index), Vector2i.RIGHT, Vector2i.DOWN)
 
-	if previous_state == puzzle.rows:
-		# if this iteration didn't change the state of the puzzle,
-		# we're not improving the solution, so there's no point in continuing
-		return false
-
-	# cache the previous state
-	previous_state = puzzle.rows
-
 #region DEBUG Solve Timer End
 	var solution_end = Time.get_ticks_usec()
 	if debug: print("Solution Time: %d microsec" % (solution_end-solution_start))
 #endregion Solve Timer End
 
-	return true
+	var should_continue = previous_state != puzzle.rows
+
+	# cache the previous state
+	previous_state = puzzle.rows
+
+	# if this iteration didn't change the state of the puzzle,
+	# we're not improving the solution, so there's no point in continuing
+	return should_continue
+
 #endregion Solution
 
 
