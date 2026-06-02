@@ -133,7 +133,7 @@ func _initialize_solution(solved_state: String) -> void:
 				var result := _get_count(index, row_state)
 				count = result[0]
 				index += result[1]
-			else:
+			elif next_char == ',':
 				# row_state[index] should be a ','
 				if !filled: # empty cell(s)
 					current_cell += count
@@ -146,6 +146,8 @@ func _initialize_solution(solved_state: String) -> void:
 				filled = !filled
 				count = 0
 				index += 1
+			else:
+				assert(false, "Invalid character: '%s' at index %d" % [row_state[index], index])
 
 		# we made it to the end of the sol'n row, but if the last value is
 		# a "filled" value, we need to handle that before we move on
