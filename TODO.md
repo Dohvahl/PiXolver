@@ -8,6 +8,6 @@
 - [x] change solution representation to just have numbers, no symbols
 - [x] check for marked cells at the start and end of the row/column,
 		adjust the fill/partial-fill checks and solving to account for them
-- [ ] change sol'n rep to match data set (just 1/0 in a grid)
+- [x] change sol'n rep to match data set (just 1/0 in a grid)
 - [ ] add representation for clues so we can track if individual clues have been solved
 - [ ] change rendering of individual clue if solved
