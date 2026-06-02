@@ -114,59 +114,18 @@ func is_column_solved(i: int) -> bool:
 
 func _initialize_solution(solved_state: String) -> void:
 	# setup needed variables
-	var count := 0
 	var row := 0
-	var filled := false
 
 	# iterate over each row state
-	var row_states := solved_state.split("/")
+	var row_states := solved_state.split("\n")
 	for row_state in row_states:
 		var index := 0
-		var current_cell := 0
-		# the first digit is either 1 or 0, if the first cell is filled or not, respectively
-		filled = int(row_state[0])
-		index += 2
 		while index < row_state.length():
-			var next_char := row_state[index]
-			if next_char.is_valid_int():
-				# this is a number with either one or two digits, so get the full number
-				var result := _get_count(index, row_state)
-				count = result[0]
-				index += result[1]
-			elif next_char == ',':
-				# row_state[index] should be a ','
-				if !filled: # empty cell(s)
-					current_cell += count
-				else:
-					# starting from the current cell, fill the next <count> cells
-					for cell in range(0, count):
-						solution_rows[row].fill_cell(current_cell + cell)
-						solution_columns[current_cell + cell].fill_cell(row)
-					current_cell += 1
-				filled = !filled
-				count = 0
-				index += 1
-			else:
-				assert(false, "Invalid character: '%s' at index %d" % [row_state[index], index])
-
-		# we made it to the end of the sol'n row, but if the last value is
-		# a "filled" value, we need to handle that before we move on
-		if filled:
-			# starting from the current cell, fill the next <count> cells
-			for cell in range(0, count):
-				solution_rows[row].fill_cell(current_cell + cell)
-				solution_columns[current_cell + cell].fill_cell(row)
-
+			if row_state[index] == '1':
+				solution_rows[row].fill_cell(index)
+				solution_columns[index].fill_cell(row)
+			index += 1
 		row += 1
-
-# returns an array where:
-# 	result[0] -> count
-# 	result[1] -> number of digits in count
-func _get_count(starting_index: int, row_state: String) -> Array[int]:
-	var digits_check := 0
-	while starting_index + digits_check < row_state.length() and row_state[starting_index + digits_check].is_valid_int():
-		digits_check += 1
-	return [int(row_state.substr(starting_index, digits_check)), digits_check]
 
 func _setup_clues() -> void:
 	var current_max := 0

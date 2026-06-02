@@ -19,7 +19,11 @@ script = ExtResource("1_ebq2e")
 grid_size = 5
 solver_scene = ExtResource("2_65i6o")
 draw_clue_cells = true
-initial_state = "0 1,3,1/1 1,1,2,1/0 1,1,1,2/1 1,3,1/1 5"
+initial_state = "01110
+10110
+01011
+10001
+11111"
 metadata/_edit_group_ = true
 
 [node name="Message" type="Label" parent="." unique_id=939463974]
