@@ -3,7 +3,9 @@ extends Control
 
 var puzzle : Puzzle							# data representation of the puzzle
 
-@export_range(2, 30) var grid_size: int 	# dimenion for the grid. Total grid size is grid_size * grid_size
+@export_range(1, 5000) var puzzle_number : int = 1
+const SAMPLE_PUZZLES_PATH := "res://SamplePuzzles/rand"
+
 var _total_width							# grid width + row clues area width
 var _total_height							# grid height + column clues area height
 
@@ -27,15 +29,17 @@ var solved := false
 
 #endregion
 
-# initial state is a string representing the puzzle at the start.
-# 'x' -> a filled cell
-# '-' -> an empty cell
-# '/' -> new row
-# eg. A 2x2 puzzle where cells (1, 1) and (0, 1) are filled would be represented as
-# 	1-1x/1x1-
-@export_multiline("Starting Puzzle State") var initial_state: String
+# initial state is a string representing the solved puzzle
+var initial_state: String
 
+var grid_size := 30
 func _ready() -> void:
+	# get the puzzle from the available samples
+	var file_path = SAMPLE_PUZZLES_PATH + str(puzzle_number)
+	var puzzle_file := FileAccess.open(file_path,FileAccess.READ)
+	assert(puzzle_file, "Failed to open sample puzzle %d: '%s'" % [puzzle_number, FileAccess.get_open_error()])
+	initial_state = puzzle_file.get_as_text()
+
 	puzzle = Puzzle.new(grid_size, initial_state)
 
 	_total_width = CELL_SIZE * (puzzle.max_row_clues + grid_size)
