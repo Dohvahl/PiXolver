@@ -37,6 +37,8 @@ class Solver_Data:
 		elif iter_direction == Vector2i.RIGHT:
 			solved_columns.set(index, null)
 
+# Keep track of the previous iterations' state
+var previous_state : Array[CellArray]
 
 @export var max_iterations := 5
 var tracker : Solver_Data
@@ -48,9 +50,10 @@ func _ready() -> void:
 func run(puzzle: Puzzle, debug: bool = false) -> bool:
 	# run the solver until the puzzle is solved, but to keep it from getting
 	# into an infinite loop, we cap the number of iterations
-	var iterations := 0
+	var iterations := 1
 	while !puzzle.is_solved():
-		run_single(puzzle, iterations, debug)
+		if !run_single(puzzle, iterations, debug):
+			return false
 		iterations += 1
 		if iterations >= max_iterations:
 			break
@@ -63,7 +66,8 @@ func run(puzzle: Puzzle, debug: bool = false) -> bool:
 		print("Iterations: %d" % iterations)
 	return puzzle.is_solved()
 
-func run_single(puzzle: Puzzle, iterations: int, debug: bool = false) -> void:
+## returns true if additional iterations are required
+func run_single(puzzle: Puzzle, iterations: int, debug: bool = false) -> bool:
 	if debug: print("\n*** DEBUG *** Iteration %d *** DEBUG ***" % iterations)
 #region PreProcess
 #region DEBUG PreProcess Timer Start
@@ -112,11 +116,20 @@ func run_single(puzzle: Puzzle, iterations: int, debug: bool = false) -> void:
 		#print("Attempting to solve column %d" % column_index)
 		_try(puzzle, column_index, puzzle.col_clues.get(column_index), Vector2i.RIGHT, Vector2i.DOWN)
 
+	if previous_state == puzzle.rows:
+		# if this iteration didn't change the state of the puzzle,
+		# we're not improving the solution, so there's no point in continuing
+		return false
+
+	# cache the previous state
+	previous_state = puzzle.rows
+
 #region DEBUG Solve Timer End
 	var solution_end = Time.get_ticks_usec()
 	if debug: print("Solution Time: %d microsec" % (solution_end-solution_start))
 #endregion Solve Timer End
 
+	return true
 #endregion Solution
 
 
