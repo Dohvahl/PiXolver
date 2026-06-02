@@ -146,6 +146,15 @@ func _initialize_solution(solved_state: String) -> void:
 				filled = !filled
 				count = 0
 				index += 1
+
+		# we made it to the end of the sol'n row, but if the last value is
+		# a "filled" value, we need to handle that before we move on
+		if filled:
+			# starting from the current cell, fill the next <count> cells
+			for cell in range(0, count):
+				solution_rows[row].fill_cell(current_cell + cell)
+				solution_columns[current_cell + cell].fill_cell(row)
+
 		row += 1
 
 # returns an array where:
@@ -153,7 +162,8 @@ func _initialize_solution(solved_state: String) -> void:
 # 	result[1] -> number of digits in count
 func _get_count(starting_index: int, row_state: String) -> Array[int]:
 	var digits_check := 0
-	while row_state[starting_index + digits_check].is_valid_int(): digits_check += 1
+	while starting_index + digits_check < row_state.length() and row_state[starting_index + digits_check].is_valid_int():
+		digits_check += 1
 	return [int(row_state.substr(starting_index, digits_check)), digits_check]
 
 func _setup_clues() -> void:
