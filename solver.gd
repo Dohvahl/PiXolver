@@ -45,24 +45,26 @@ var tracker : Solver_Data
 func _ready() -> void:
 	tracker = Solver_Data.new()
 
-func run(puzzle: Puzzle) -> void:
+func run(puzzle: Puzzle, debug: bool = false) -> bool:
 	# run the solver until the puzzle is solved, but to keep it from getting
 	# into an infinite loop, we cap the number of iterations
 	var iterations := 0
 	while !puzzle.is_solved():
-		run_single(puzzle, iterations)
+		run_single(puzzle, iterations, debug)
 		iterations += 1
 		if iterations >= max_iterations:
 			break
 
-	if puzzle.is_solved():
-		print("We did it!")
-	else:
-		print("FAILURE!")
-	print("Iterations: %d" % iterations)
+	if debug:
+		if puzzle.is_solved():
+			print("We did it!")
+		else:
+			print("FAILURE!")
+		print("Iterations: %d" % iterations)
+	return puzzle.is_solved()
 
-func run_single(puzzle: Puzzle, iterations: int) -> void:
-	print("\n*** DEBUG *** Iteration %d *** DEBUG ***" % iterations)
+func run_single(puzzle: Puzzle, iterations: int, debug: bool = false) -> void:
+	if debug: print("\n*** DEBUG *** Iteration %d *** DEBUG ***" % iterations)
 #region PreProcess
 #region DEBUG PreProcess Timer Start
 	# measure how long the preprocessing takes
@@ -89,7 +91,7 @@ func run_single(puzzle: Puzzle, iterations: int) -> void:
 
 #region DEBUG PreProcess Timer End
 	var preprocess_end = Time.get_ticks_usec()
-	print("PreProcess Time: %d microsec" % (preprocess_end-preprocess_start))
+	if debug: print("PreProcess Time: %d microsec" % (preprocess_end-preprocess_start))
 #endregion DEBUG PreProcess Timer End
 #endregion PreProcess
 
@@ -112,7 +114,7 @@ func run_single(puzzle: Puzzle, iterations: int) -> void:
 
 #region DEBUG Solve Timer End
 	var solution_end = Time.get_ticks_usec()
-	print("Solution Time: %d microsec" % (solution_end-solution_start))
+	if debug: print("Solution Time: %d microsec" % (solution_end-solution_start))
 #endregion Solve Timer End
 
 #endregion Solution

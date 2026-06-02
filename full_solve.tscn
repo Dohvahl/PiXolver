@@ -1,0 +1,9 @@
+[gd_scene format=3 uid="uid://d276l5fnb8hjh"]
+
+[ext_resource type="Script" uid="uid://dtcjk73uo0abt" path="res://full_solve.gd" id="1_ssq6r"]
+[ext_resource type="PackedScene" uid="uid://1gnjb8s457r2" path="res://solver.tscn" id="2_5fay3"]
+
+[node name="FullSolve" type="Node" unique_id=688364892]
+script = ExtResource("1_ssq6r")
+max_puzzles = 500
+solver_scene = ExtResource("2_5fay3")
