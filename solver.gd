@@ -80,16 +80,16 @@ func run_single(puzzle: Puzzle, iterations: int, debug: bool = false) -> bool:
 
 	# preprocess the puzzle to get some basic information
 	for i in range(0, puzzle.grid_size):
-		var row_clues = Array(puzzle.row_clues.get(i))
-		var column_clues = Array(puzzle.col_clues.get(i))
+		var row_clues = puzzle.get_row_clues(i)
+		var column_clues = puzzle.get_col_clues(i)
 
 		if row_clues:
-			var max_clue = row_clues.max()
+			var max_clue = puzzle.solution_rows[i].max_clue_value
 			assert(max_clue != null, "Invalid row clues")
 			tracker.largest_row_clues[i] = max_clue
 
 		if column_clues:
-			var max_clue = column_clues.max()
+			var max_clue = puzzle.solution_columns[i].max_clue_value
 			assert(max_clue != null, "Invalid column clues")
 			tracker.largest_column_clues[i] = max_clue
 
@@ -109,12 +109,12 @@ func run_single(puzzle: Puzzle, iterations: int, debug: bool = false) -> bool:
 	for row_index in range(0, puzzle.grid_size):
 		# try to solve the row
 		#print("Attempting to solve row %d" % row_index)
-		_try(puzzle, row_index,puzzle.row_clues.get(row_index), Vector2i.DOWN, Vector2i.RIGHT)
+		_try(puzzle, row_index, puzzle.get_row_clues(row_index), Vector2i.DOWN, Vector2i.RIGHT)
 
 	for column_index in range(0, puzzle.grid_size):
 		# try to solve the column
 		#print("Attempting to solve column %d" % column_index)
-		_try(puzzle, column_index, puzzle.col_clues.get(column_index), Vector2i.RIGHT, Vector2i.DOWN)
+		_try(puzzle, column_index, puzzle.get_col_clues(column_index), Vector2i.RIGHT, Vector2i.DOWN)
 
 #region DEBUG Solve Timer End
 	var solution_end = Time.get_ticks_usec()
@@ -186,20 +186,20 @@ func _was_previously_solved(puzzle: Puzzle, index: int, iter_direction: Vector2i
 	else:
 		return false
 
-func _distance_to_end(clues: Array, grid_size: int) -> int:
+func _distance_to_end(clues: Array[Clue], grid_size: int) -> int:
 	# sum the clues
-	var accumulate = func(accum, number): return accum + number
+	var accumulate = func(accum: int, clue: Clue): return accum + clue.value
 	var sum = clues.reduce(accumulate, 0)
 
 	# the number of spaces is the number of n-1, where n is the number of clues
 	var spaces = clues.size() - 1
 	return grid_size - (sum + spaces)
 
-func _fill(puzzle: Puzzle, starting_location: Vector2i, clues: Array, fill_direction: Vector2i) -> void:
+func _fill(puzzle: Puzzle, starting_location: Vector2i, clues: Array[Clue], fill_direction: Vector2i) -> void:
 	# fill in the row/column
 	var i := 0
 	for clue in clues:
-		var next_cell = _fill_n_cells(puzzle, starting_location + (i * fill_direction), clue, fill_direction, true)
+		var next_cell = _fill_n_cells(puzzle, starting_location + (i * fill_direction), clue.value, fill_direction, true)
 		if fill_direction == Vector2i.RIGHT:
 			i = next_cell.x
 		elif fill_direction == Vector2i.DOWN:
@@ -208,17 +208,17 @@ func _fill(puzzle: Puzzle, starting_location: Vector2i, clues: Array, fill_direc
 		# is a space, so skip to the next row down
 		i += 1
 
-func _partial_fill(puzzle: Puzzle, starting_location: Vector2i, clues: Array, leftover_cells: int, fill_direction: Vector2i) -> void:
+func _partial_fill(puzzle: Puzzle, starting_location: Vector2i, clues: Array[Clue], leftover_cells: int, fill_direction: Vector2i) -> void:
 	var i := 0
 	for clue in clues:
-		if clue <= leftover_cells:
+		if clue.value <= leftover_cells:
 			# we can't fill any cells for this clue
 			# skip passed it and the following space
-			i += clue + 1
+			i += clue.value + 1
 		else:
 			# we can partially fill in this clue's cells
 			var offset = (i + leftover_cells) * fill_direction
-			var next_cell = _fill_n_cells(puzzle, starting_location + offset, clue-leftover_cells, fill_direction)
+			var next_cell = _fill_n_cells(puzzle, starting_location + offset, clue.value-leftover_cells, fill_direction)
 			if fill_direction == Vector2i.RIGHT:
 				i = next_cell.x
 			elif fill_direction == Vector2i.DOWN:

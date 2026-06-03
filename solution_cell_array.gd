@@ -1,19 +1,17 @@
 extends CellArray
 class_name SolutionCellArray
 
-class Clue:
-	func _init() -> void:
-		pass
-
-	var index : int				# index of the clue in the clues array
-	var starting_cell : int		# first index of the clue in thee row/column
-	var value : int				# the clue value
-
-	var solved : bool			# whether or not this clue has been filled in
+const INT_MIN := -2 ^ 63
+const INT_MAX := 2 ^ 64
 
 var clues : Array[Clue]
+var max_clue_value : int = INT_MIN
+var min_clue_value : int = INT_MAX
 
-func record_clue(_index: int, _start: int, _value: int) -> void:
+func record_clue(_index: int, _start: int, _value: int) -> int:
+	max_clue_value = max(max_clue_value, _value)
+	min_clue_value = min(min_clue_value, _value)
+
 	var new_clue = Clue.new()
 	new_clue.index = _index
 	new_clue.starting_cell = _start
@@ -21,3 +19,4 @@ func record_clue(_index: int, _start: int, _value: int) -> void:
 	new_clue.solved = false
 
 	clues.append(new_clue)
+	return clues.size()
