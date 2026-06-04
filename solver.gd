@@ -184,6 +184,10 @@ func _try_line_solve(puzzle: Puzzle, index: int, clues: Array[Clue], iteration_d
 		_fill_n_cells(puzzle, end_cell, last_clue._value, -fill_direction, true)
 		clues.back().toggle_solved()
 
+	# TODO - Check if there are filled cells 1 away from the first/last clues amount
+	# For example, if the first clue is 3, and there are 3 empty cells, then a filled cell,
+	# we can safely mark the first cell. Similar logic holds for the last cell.
+
 	return _is_solved(puzzle, index, iteration_direction)
 
 ## Find the "virtual" start and end of the row/column, taking marked cells into account
