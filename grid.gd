@@ -175,6 +175,7 @@ func _draw_column_clues() -> void:
 
 func _draw_puzzle_grid() -> void:
 	for x in range(grid_size):
+		var vert_line_size = 3 if x % 5 == 0 else 1
 		for y in range(grid_size):
 			var rect = Rect2(
 				CELL_SIZE * (x + puzzle.max_row_clues),
@@ -191,11 +192,9 @@ func _draw_puzzle_grid() -> void:
 			else:
 				draw_rect(rect, Color.WHITE, false, 1)
 
-			if x % 5 == 0:
-				draw_line(rect.position, rect.position + (Vector2.DOWN * CELL_SIZE * grid_size), Color.WHITE, 5)
-
-			if y % 5 == 0:
-				draw_line(rect.position, rect.position + (Vector2.RIGHT * CELL_SIZE * grid_size), Color.WHITE, 5)
+			var horz_line_size = 3 if y % 5 == 0 else 1
+			draw_line(rect.position, rect.position + (Vector2.DOWN * CELL_SIZE * grid_size), Color.WHITE, vert_line_size)
+			draw_line(rect.position, rect.position + (Vector2.RIGHT * CELL_SIZE * grid_size), Color.WHITE, horz_line_size)
 
 #endregion
 
