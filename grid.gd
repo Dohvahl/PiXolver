@@ -189,7 +189,13 @@ func _draw_puzzle_grid() -> void:
 			elif puzzle.is_cell_marked(cell_location.x, cell_location.y):
 				draw_rect(rect, Color.RED, true)
 			else:
-				draw_rect(rect, Color.WHITE, false, 1.5)
+				draw_rect(rect, Color.WHITE, false, 1)
+
+			if x % 5 == 0:
+				draw_line(rect.position, rect.position + (Vector2.DOWN * CELL_SIZE * grid_size), Color.WHITE, 5)
+
+			if y % 5 == 0:
+				draw_line(rect.position, rect.position + (Vector2.RIGHT * CELL_SIZE * grid_size), Color.WHITE, 5)
 
 #endregion
 
