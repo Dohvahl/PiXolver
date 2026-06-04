@@ -142,15 +142,56 @@ func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2
 
 	# the current row/column may have been solved by previous iterations,
 	# so we should check it before we try to do any work to it
-	if _was_previously_solved(puzzle, index, iteration_direction):
+	if _is_solved(puzzle, index, iteration_direction):
 		tracker.mark_solved(iteration_direction, index)
 
 		# ensure the empty cells are marked
 		puzzle.mark_empty_cells(index, fill_direction)
 		return
 
-	# previous iterations may have marked cells at the start or end,
-	# these can be skipped
+	if _try_line_solve(puzzle, index, clues, iteration_direction, fill_direction):
+		return
+
+func _is_solved(puzzle: Puzzle, index: int, iter_direction: Vector2i) -> bool:
+	if iter_direction == Vector2i.DOWN:
+		return puzzle.is_row_solved(index)
+	elif iter_direction == Vector2i.RIGHT:
+		return puzzle.is_column_solved(index)
+	else:
+		return false
+
+## Returns true if the row/column is solved by this
+func _try_line_solve(puzzle: Puzzle, index: int, clues: Array[Clue], iteration_direction: Vector2i, fill_direction: Vector2i) -> bool:
+	var bounds := get_array_bounds(puzzle, index, iteration_direction, fill_direction)
+	var start_offset := bounds[0]
+	var end_offset := bounds[1]
+
+	# Start by adding the clues and the spaces in between.
+	var leftover_cells = _distance_to_end(clues, puzzle.grid_size - start_offset - end_offset)
+	var start_cell := (iteration_direction * index) + (fill_direction * start_offset)
+
+	# If the sum is the same as the grid size, then the entire row is filled
+	# by the clues
+	if leftover_cells == 0:
+		_fill(puzzle, start_cell, clues, fill_direction)
+		tracker.mark_solved(iteration_direction, index)
+		return true
+
+	# If the sum is less than the largest clue in the row,
+	# then the row can be partially filled
+	elif leftover_cells <= tracker.get_largest_clue(iteration_direction, index):
+		_partial_fill(puzzle, start_cell, clues, leftover_cells, fill_direction)
+
+	# check if the first cell is filled, but the first clue isn't yet completed
+	elif puzzle.is_cell_filled(start_cell.x, start_cell.y) and !clues[0].is_solved():
+		print("Can solve a clue starting at cell %s" % str(start_cell))
+
+
+	return _is_solved(puzzle, index, iteration_direction)
+
+## Find the "virtual" start and end of the row/column, taking marked cells into account
+func get_array_bounds(puzzle: Puzzle, index: int, iteration_direction: Vector2i, fill_direction: Vector2i) -> Array[int]:
+	# previous iterations may have marked cells at the start or end, these can be skipped
 	var start_offset := 0
 	var starting_cell := iteration_direction * index
 	while puzzle.is_cell_marked(starting_cell.x, starting_cell.y):
@@ -163,32 +204,12 @@ func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2
 		end_offset += 1
 		end_cell -= fill_direction
 
-	# Start by adding the clues and the spaces in between.
-	var leftover_cells = _distance_to_end(clues, puzzle.grid_size - start_offset - end_offset)
+	return [start_offset, end_offset]
 
-	# If the sum is the same as the grid size, then the entire row is filled
-	# by the clues
-	if leftover_cells == 0:
-		_fill(puzzle, (iteration_direction * index) + (fill_direction * start_offset), clues, fill_direction)
-		tracker.mark_solved(iteration_direction, index)
-		return
-
-	# If the sum is less than the largest clue in the row,
-	# then the row can be partially filled
-	elif leftover_cells <= tracker.get_largest_clue(iteration_direction, index):
-		_partial_fill(puzzle, (iteration_direction * index) + (fill_direction * start_offset), clues, leftover_cells, fill_direction)
-
-func _was_previously_solved(puzzle: Puzzle, index: int, iter_direction: Vector2i) -> bool:
-	if iter_direction == Vector2i.DOWN:
-		return puzzle.is_row_solved(index)
-	elif iter_direction == Vector2i.RIGHT:
-		return puzzle.is_column_solved(index)
-	else:
-		return false
 
 func _distance_to_end(clues: Array[Clue], grid_size: int) -> int:
 	# sum the clues
-	var accumulate = func(accum: int, clue: Clue): return accum + clue.value
+	var accumulate = func(accum: int, clue: Clue): return accum + clue._value
 	var sum = clues.reduce(accumulate, 0)
 
 	# the number of spaces is the number of n-1, where n is the number of clues
@@ -199,11 +220,12 @@ func _fill(puzzle: Puzzle, starting_location: Vector2i, clues: Array[Clue], fill
 	# fill in the row/column
 	var i := 0
 	for clue in clues:
-		var next_cell = _fill_n_cells(puzzle, starting_location + (i * fill_direction), clue.value, fill_direction, true)
+		var next_cell = _fill_n_cells(puzzle, starting_location + (i * fill_direction), clue._value, fill_direction, true)
 		if fill_direction == Vector2i.RIGHT:
 			i = next_cell.x
 		elif fill_direction == Vector2i.DOWN:
 			i = next_cell.y
+		clue.toggle_solved()
 		# because the column is filled by the clues, the next row
 		# is a space, so skip to the next row down
 		i += 1
@@ -211,14 +233,14 @@ func _fill(puzzle: Puzzle, starting_location: Vector2i, clues: Array[Clue], fill
 func _partial_fill(puzzle: Puzzle, starting_location: Vector2i, clues: Array[Clue], leftover_cells: int, fill_direction: Vector2i) -> void:
 	var i := 0
 	for clue in clues:
-		if clue.value <= leftover_cells:
+		if clue._value <= leftover_cells:
 			# we can't fill any cells for this clue
 			# skip passed it and the following space
-			i += clue.value + 1
+			i += clue._value + 1
 		else:
 			# we can partially fill in this clue's cells
 			var offset = (i + leftover_cells) * fill_direction
-			var next_cell = _fill_n_cells(puzzle, starting_location + offset, clue.value-leftover_cells, fill_direction)
+			var next_cell = _fill_n_cells(puzzle, starting_location + offset, clue._value-leftover_cells, fill_direction)
 			if fill_direction == Vector2i.RIGHT:
 				i = next_cell.x
 			elif fill_direction == Vector2i.DOWN:

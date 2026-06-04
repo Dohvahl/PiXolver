@@ -8,15 +8,9 @@ var clues : Array[Clue]
 var max_clue_value : int = INT_MIN
 var min_clue_value : int = INT_MAX
 
-func record_clue(_index: int, _start: int, _value: int) -> int:
-	max_clue_value = max(max_clue_value, _value)
-	min_clue_value = min(min_clue_value, _value)
+func record_clue(in_index: int, in_start: int, in_value: int) -> int:
+	max_clue_value = max(max_clue_value, in_value)
+	min_clue_value = min(min_clue_value, in_value)
 
-	var new_clue = Clue.new()
-	new_clue.index = _index
-	new_clue.starting_cell = _start
-	new_clue.value = _value
-	new_clue.solved = false
-
-	clues.append(new_clue)
+	clues.append(Clue.new(in_index, in_start, in_value))
 	return clues.size()

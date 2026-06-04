@@ -92,12 +92,12 @@ func mark_empty_cells(index: int, fill_direction: Vector2i) -> void:
 func cell_index_from_location(x: int, y: int) -> int:
 	return x + (y * grid_size)
 
-func get_row_clues(index: int) -> Array:
+func get_row_clues(index: int) -> Array[Clue]:
 	if index < 0 or index > grid_size:
 		return []
 	return solution_rows[index].clues
 
-func get_col_clues(index: int) -> Array:
+func get_col_clues(index: int) -> Array[Clue]:
 	if index < 0 or index > grid_size:
 		return []
 	return solution_columns[index].clues
