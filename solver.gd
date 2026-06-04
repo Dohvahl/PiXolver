@@ -161,6 +161,7 @@ func _try_line_solve(puzzle: Puzzle, index: int, clues: Array[Clue], iteration_d
 	# Start by adding the clues and the spaces in between.
 	var leftover_cells = _distance_to_end(clues, puzzle.grid_size - start_offset - end_offset)
 	var start_cell := (iteration_direction * index) + (fill_direction * start_offset)
+	var end_cell := start_cell + (fill_direction * (puzzle.grid_size - end_offset - 1))
 
 	# If the sum is the same as the grid size, then the entire row is filled
 	# by the clues
@@ -168,17 +169,20 @@ func _try_line_solve(puzzle: Puzzle, index: int, clues: Array[Clue], iteration_d
 		_fill(puzzle, start_cell, clues, fill_direction)
 		tracker.mark_solved(iteration_direction, index)
 		return true
-
 	# If the sum is less than the largest clue in the row,
 	# then the row can be partially filled
 	elif leftover_cells <= tracker.get_largest_clue(iteration_direction, index):
 		_partial_fill(puzzle, start_cell, clues, leftover_cells, fill_direction)
 
-	# Check if the first cell is filled, but the first clue isn't yet completed.
-	# If so, we can fill in the clue
-	elif puzzle.is_cell_filled(start_cell.x, start_cell.y) and !clues[0].is_solved():
+	# Check if the first/last cell is filled, but the first/last clue isn't yet completed.
+	# If so, we can fill in the clues
+	if puzzle.is_cell_filled(start_cell.x, start_cell.y) and !clues[0].is_solved():
 		_fill_n_cells(puzzle, start_cell, clues[0]._value, fill_direction, true)
 		clues[0].toggle_solved()
+	var last_clue = clues.back()
+	if puzzle.is_cell_filled(end_cell.x, end_cell.y) and !last_clue.is_solved():
+		_fill_n_cells(puzzle, end_cell, last_clue._value, -fill_direction, true)
+		clues.back().toggle_solved()
 
 	return _is_solved(puzzle, index, iteration_direction)
 
