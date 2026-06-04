@@ -24,9 +24,9 @@ var solved := false
 
 #region DEBUG VARIABLES
 
-@export var draw_clue_cells: bool :
+@export var debug: bool :
 	set(new_val):
-		draw_clue_cells = new_val
+		debug = new_val
 		queue_redraw()
 
 #endregion
@@ -92,10 +92,10 @@ func _input(event: InputEvent) -> void:
 			elif puzzle.mark_cell(cell_clicked.x, cell_clicked.y):
 				queue_redraw()
 	elif event.is_action_pressed("run_solver"):
-		solver.run(puzzle, true)
+		solver.run(puzzle, debug)
 		queue_redraw()
 	elif event.is_action_pressed("run_solver_single"):
-		solver.run_single(puzzle, iterations, true)
+		solver.run_single(puzzle, iterations, debug)
 		iterations += 1
 		queue_redraw()
 
@@ -112,7 +112,7 @@ func _draw_row_clues() -> void:
 			var clue_position := _get_row_clue_position(row_index, 1)
 			draw_string(ThemeDB.fallback_font, _get_row_clue_position(row_index, 1), "0", HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE, 16, solved_clue_color)
 #region DEBUG
-			if draw_clue_cells:
+			if debug:
 				var clue_rect = Rect2(
 					clue_position - Vector2(0, FONT_OFFSET),
 					Vector2(CELL_SIZE, CELL_SIZE)
@@ -129,7 +129,7 @@ func _draw_row_clues() -> void:
 			var color = solved_clue_color if clue.is_solved() else unsolved_clue_color
 			draw_string(ThemeDB.fallback_font, clue_position, str(clue._value), HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE, 16, color)
 #region DEBUG
-			if draw_clue_cells:
+			if debug:
 				var clue_rect = Rect2(
 					clue_position - Vector2(0, FONT_OFFSET),
 					Vector2(CELL_SIZE, CELL_SIZE)
@@ -147,7 +147,7 @@ func _draw_column_clues() -> void:
 			var clue_position = _get_col_clue_position(col_index, 1)
 			draw_string(ThemeDB.fallback_font, clue_position, "0", HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE, 16, solved_clue_color)
 #region DEBUG
-			if draw_clue_cells:
+			if debug:
 				var clue_rect = Rect2(
 					clue_position,
 					Vector2i(CELL_SIZE, CELL_SIZE)
@@ -164,7 +164,7 @@ func _draw_column_clues() -> void:
 			var color = solved_clue_color if clue.is_solved() else unsolved_clue_color
 			draw_string(ThemeDB.fallback_font, clue_position, str(clue._value), HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE, 16, color)
 #region DEBUG
-			if draw_clue_cells:
+			if debug:
 				var clue_rect = Rect2(
 					clue_position - Vector2(0, FONT_OFFSET),
 					Vector2i(CELL_SIZE, CELL_SIZE)

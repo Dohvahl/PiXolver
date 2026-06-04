@@ -33,4 +33,6 @@ func mark_empty_cells() -> void:
 	marked_cells = ~filled_cells
 
 func equals(other: CellArray) -> bool:
-	return filled_cells == other.filled_cells
+	var match_filled := filled_cells == other.filled_cells
+	var match_marked := marked_cells == other.marked_cells
+	return match_filled and match_marked

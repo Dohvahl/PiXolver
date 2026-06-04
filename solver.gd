@@ -37,9 +37,6 @@ class Solver_Data:
 		elif iter_direction == Vector2i.RIGHT:
 			solved_columns.set(index, null)
 
-# Keep track of the previous iterations' state
-var previous_state : Array[CellArray]
-
 @export var max_iterations := 5
 var tracker : Solver_Data
 
@@ -55,7 +52,7 @@ func run(puzzle: Puzzle, debug: bool = false) -> bool:
 		if !run_single(puzzle, iterations, debug):
 			break
 		iterations += 1
-		if iterations >= max_iterations:
+		if iterations - 1 >= max_iterations:
 			break
 
 	if debug:
@@ -63,7 +60,7 @@ func run(puzzle: Puzzle, debug: bool = false) -> bool:
 			print("We did it!")
 		else:
 			print("FAILURE!")
-		print("Iterations: %d" % iterations)
+		print("Iterations: %d" % (iterations - 1))
 	return puzzle.is_solved()
 
 ## returns true if additional iterations are required
@@ -105,6 +102,8 @@ func run_single(puzzle: Puzzle, iterations: int, debug: bool = false) -> bool:
 	var solution_start := Time.get_ticks_usec()
 #endregion DEBUG Solve Timer Start
 
+	var should_continue := true
+
 	# check each set of row and column clues
 	for row_index in range(0, puzzle.grid_size):
 		# try to solve the row
@@ -120,25 +119,19 @@ func run_single(puzzle: Puzzle, iterations: int, debug: bool = false) -> bool:
 	var solution_end = Time.get_ticks_usec()
 	if debug: print("Solution Time: %d microsec" % (solution_end-solution_start))
 #endregion Solve Timer End
-
-	var should_continue = previous_state != puzzle.rows
-
-	# cache the previous state
-	previous_state = puzzle.rows
+#endregion Solution
 
 	# if this iteration didn't change the state of the puzzle,
 	# we're not improving the solution, so there's no point in continuing
-	return should_continue
-
-#endregion Solution
-
+	return true
 
 #region "Private" solver functions
 
-func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2i, fill_direction: Vector2i) -> void:
+## Returns true if this solved the row/column
+func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2i, fill_direction: Vector2i) -> bool:
 	# no clues for this row, or we've already solved it; skip to the next one
 	if !clues or tracker.is_solved(iteration_direction, index):
-		return
+		return true
 
 	# the current row/column may have been solved by previous iterations,
 	# so we should check it before we try to do any work to it
@@ -147,10 +140,9 @@ func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2
 
 		# ensure the empty cells are marked
 		puzzle.mark_empty_cells(index, fill_direction)
-		return
+		return true
 
-	if _try_line_solve(puzzle, index, clues, iteration_direction, fill_direction):
-		return
+	return _try_line_solve(puzzle, index, clues, iteration_direction, fill_direction)
 
 func _is_solved(puzzle: Puzzle, index: int, iter_direction: Vector2i) -> bool:
 	if iter_direction == Vector2i.DOWN:
@@ -162,7 +154,7 @@ func _is_solved(puzzle: Puzzle, index: int, iter_direction: Vector2i) -> bool:
 
 ## Returns true if the row/column is solved by this
 func _try_line_solve(puzzle: Puzzle, index: int, clues: Array[Clue], iteration_direction: Vector2i, fill_direction: Vector2i) -> bool:
-	var bounds := get_array_bounds(puzzle, index, iteration_direction, fill_direction)
+	var bounds := _get_array_bounds(puzzle, index, iteration_direction, fill_direction)
 	var start_offset := bounds[0]
 	var end_offset := bounds[1]
 
@@ -182,15 +174,16 @@ func _try_line_solve(puzzle: Puzzle, index: int, clues: Array[Clue], iteration_d
 	elif leftover_cells <= tracker.get_largest_clue(iteration_direction, index):
 		_partial_fill(puzzle, start_cell, clues, leftover_cells, fill_direction)
 
-	# check if the first cell is filled, but the first clue isn't yet completed
+	# Check if the first cell is filled, but the first clue isn't yet completed.
+	# If so, we can fill in the clue
 	elif puzzle.is_cell_filled(start_cell.x, start_cell.y) and !clues[0].is_solved():
-		print("Can solve a clue starting at cell %s" % str(start_cell))
-
+		_fill_n_cells(puzzle, start_cell, clues[0]._value, fill_direction, true)
+		clues[0].toggle_solved()
 
 	return _is_solved(puzzle, index, iteration_direction)
 
 ## Find the "virtual" start and end of the row/column, taking marked cells into account
-func get_array_bounds(puzzle: Puzzle, index: int, iteration_direction: Vector2i, fill_direction: Vector2i) -> Array[int]:
+func _get_array_bounds(puzzle: Puzzle, index: int, iteration_direction: Vector2i, fill_direction: Vector2i) -> Array[int]:
 	# previous iterations may have marked cells at the start or end, these can be skipped
 	var start_offset := 0
 	var starting_cell := iteration_direction * index
