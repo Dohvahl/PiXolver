@@ -9,5 +9,6 @@
 - [x] check for marked cells at the start and end of the row/column,
 		adjust the fill/partial-fill checks and solving to account for them
 - [x] change sol'n rep to match data set (just 1/0 in a grid)
-- [ ] add representation for clues so we can track if individual clues have been solved
-- [ ] change rendering of individual clue if solved
+- [x] add representation for clues so we can track if individual clues have been solved
+- [x] change rendering of individual clue if solved
+- [ ] detect and mark start/end cells that are just passed the closest clue
