@@ -34,20 +34,20 @@ func _init(init_grid_size: int, initial_state: String) -> void:
 	# add clues to the top and left side of the puzzle
 	_setup_clues()
 
-func is_cell_filled(x: int, y: int) -> bool:
-	assert(is_valid_cell_index(x, y),
-		"Cell Index outside of grid bounds: [%d, %d]" % [x,y])
-	return rows[y].is_cell_filled(x)
+func is_cell_filled(loc: Vector2i) -> bool:
+	assert(is_valid_cell_index(loc.x, loc.y),
+		"Cell Index outside of grid bounds: [%d, %d]" % [loc.x,loc.y])
+	return rows[loc.y].is_cell_filled(loc.x)
 
 func is_cell_marked(x: int, y: int) -> bool:
 	assert(is_valid_cell_index(x, y),
 		"Cell Index outside of grid bounds: [%d, %d]" % [x,y])
 	return rows[y].is_cell_marked(x)
 
-func is_cell_empty(x: int, y: int) -> bool:
-	assert(is_valid_cell_index(x, y),
-		"Cell Index outside of grid bounds: [%d, %d]" % [x,y])
-	return !rows[y].is_cell_marked(x) && !rows[y].is_cell_filled(x)
+func is_cell_empty(loc: Vector2i) -> bool:
+	assert(is_valid_cell_index(loc.x, loc.y),
+		"Cell Index outside of grid bounds: [%d, %d]" % [loc.x, loc.y])
+	return !rows[loc.y].is_cell_marked(loc.x) && !rows[loc.y].is_cell_filled(loc.x)
 
 func toggle_cell(x: int, y: int) -> bool:
 	if !is_valid_cell_index(x, y):
@@ -61,12 +61,12 @@ func toggle_cell(x: int, y: int) -> bool:
 		columns[x].fill_cell(y)
 	return true
 
-func mark_cell(x: int, y: int) -> bool:
-	if !is_valid_cell_index(x, y):
+func mark_cell(loc: Vector2i) -> bool:
+	if !is_valid_cell_index(loc.x, loc.y):
 		return false
 
-	rows[y].mark_cell(x)
-	columns[x].mark_cell(y)
+	rows[loc.y].mark_cell(loc.x)
+	columns[loc.x].mark_cell(loc.y)
 	return true
 
 func unmark_cell(x: int, y: int) -> bool:
@@ -76,6 +76,14 @@ func unmark_cell(x: int, y: int) -> bool:
 	rows[y].unmark_cell(x)
 	columns[x].unmark_cell(y)
 	return true
+
+func get_num_empty_cells(start_cell: Vector2i, fill_direction: Vector2i) -> int:
+	var count := 0
+	var current_cell := start_cell
+	while is_cell_empty(current_cell):
+		count += 1
+		current_cell += (fill_direction)
+	return count
 
 func mark_empty_cells(index: int, fill_direction: Vector2i) -> void:
 	if fill_direction == Vector2i.RIGHT: # row
@@ -194,12 +202,12 @@ func _add_col_clue(col: int, start_row: int, clue: int) -> int:
 	var current_num = solution_columns[col].length
 	return solution_columns[col].record_clue(current_num, start_row, clue)
 
-func _fill_cell(x: int, y: int) -> bool:
-	if !is_valid_cell_index(x, y):
+func _fill_cell(loc: Vector2i) -> bool:
+	if !is_valid_cell_index(loc.x, loc.y):
 		return false
 
-	rows[y].fill_cell(x)
-	columns[x].fill_cell(y)
+	rows[loc.y].fill_cell(loc.x)
+	columns[loc.x].fill_cell(loc.y)
 	return true
 
 #endregion

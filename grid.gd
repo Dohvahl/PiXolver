@@ -89,7 +89,7 @@ func _input(event: InputEvent) -> void:
 			# Mark cell
 			if puzzle.is_cell_marked(cell_clicked.x, cell_clicked.y) && puzzle.unmark_cell(cell_clicked.x, cell_clicked.y):
 				queue_redraw()
-			elif puzzle.mark_cell(cell_clicked.x, cell_clicked.y):
+			elif puzzle.mark_cell(cell_clicked):
 				queue_redraw()
 	elif event.is_action_pressed("run_solver"):
 		solver.run(puzzle, debug)
@@ -185,7 +185,7 @@ func _draw_puzzle_grid() -> void:
 				)
 
 			var cell_location = _get_cell_index_from_position(rect.position)
-			if puzzle.is_cell_filled(cell_location.x, cell_location.y):
+			if puzzle.is_cell_filled(cell_location):
 				draw_rect(rect, Color.BLACK, true)
 			elif puzzle.is_cell_marked(cell_location.x, cell_location.y):
 				draw_rect(rect, Color.RED, true)
