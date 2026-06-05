@@ -11,8 +11,8 @@
 - [x] change sol'n rep to match data set (just 1/0 in a grid)
 - [x] add representation for clues so we can track if individual clues have been solved
 - [x] change rendering of individual clue if solved
+- [ ] change fill/mark to use bitwise ops
 - [ ] detect and mark start/end cells that are just passed the closest clue
 
 # OPTIMIZE
-- [ ] change fill/mark to use bitwise ops
 - [ ] change fill/partial fill to use [Simple Boxes](https://en.wikipedia.org/wiki/Nonogram#Simple_boxes) check
