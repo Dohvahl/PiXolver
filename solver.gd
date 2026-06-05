@@ -174,19 +174,7 @@ func _try_line_solve(puzzle: Puzzle, index: int, clues: Array[Clue], iteration_d
 	elif leftover_cells <= tracker.get_largest_clue(iteration_direction, index):
 		_partial_fill(puzzle, start_cell, clues, leftover_cells, fill_direction)
 
-	# Check if the first/last cell is filled, but the first/last clue isn't yet completed.
-	# If so, we can fill in the clues
-	if puzzle.is_cell_filled(start_cell.x, start_cell.y) and !clues[0].is_solved():
-		_fill_n_cells(puzzle, start_cell, clues[0]._value, fill_direction, true)
-		clues[0].toggle_solved()
-	var last_clue = clues.back()
-	if puzzle.is_cell_filled(end_cell.x, end_cell.y) and !last_clue.is_solved():
-		_fill_n_cells(puzzle, end_cell, last_clue._value, -fill_direction, true)
-		clues.back().toggle_solved()
-
-	# TODO - Check if there are filled cells 1 away from the first/last clues amount
-	# For example, if the first clue is 3, and there are 3 empty cells, then a filled cell,
-	# we can safely mark the first cell. Similar logic holds for the last cell.
+	_try_edge_cell_checks(puzzle, start_cell, end_cell, clues[0], clues.back(), fill_direction)
 
 	return _is_solved(puzzle, index, iteration_direction)
 
@@ -207,7 +195,6 @@ func _get_array_bounds(puzzle: Puzzle, index: int, iteration_direction: Vector2i
 
 	return [start_offset, end_offset]
 
-
 func _distance_to_end(clues: Array[Clue], grid_size: int) -> int:
 	# sum the clues
 	var accumulate = func(accum: int, clue: Clue): return accum + clue._value
@@ -216,6 +203,26 @@ func _distance_to_end(clues: Array[Clue], grid_size: int) -> int:
 	# the number of spaces is the number of n-1, where n is the number of clues
 	var spaces = clues.size() - 1
 	return grid_size - (sum + spaces)
+
+func _try_edge_cell_checks(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, first_clue: Clue, last_clue: Clue, fill_direction: Vector2i) -> void:
+	# Check if the first/last cell is filled, but the first/last clue isn't yet completed.
+	# If so, we can fill in the clues
+	if puzzle.is_cell_filled(start_cell) and !first_clue.is_solved():
+		_fill_n_cells(puzzle, start_cell, first_clue._value, fill_direction, true)
+		first_clue.toggle_solved()
+	if puzzle.is_cell_filled(end_cell) and !last_clue.is_solved():
+		_fill_n_cells(puzzle, end_cell, last_clue._value, -fill_direction, true)
+		last_clue.toggle_solved()
+
+	# Check if there are filled cells 1 away from the first/last clues amount
+	# For example, if the first clue is 3, and there are 3 empty cells, then a filled cell,
+	# we can safely mark the first cell. Similar logic holds for the last cell.
+	if !first_clue.is_solved():
+		if puzzle.is_cell_filled(start_cell + (fill_direction * (first_clue._value + 1))) and puzzle.get_num_empty_cells(start_cell, fill_direction) == first_clue._value:
+			puzzle.mark_cell(start_cell)
+	if !last_clue.is_solved():
+		if puzzle.is_cell_filled(end_cell + (-fill_direction * (last_clue._value))) and puzzle.get_num_empty_cells(end_cell, -fill_direction) == last_clue._value:
+			puzzle.mark_cell(end_cell)
 
 func _fill(puzzle: Puzzle, starting_location: Vector2i, clues: Array[Clue], fill_direction: Vector2i) -> void:
 	# fill in the row/column
@@ -254,12 +261,12 @@ func _fill_n_cells(puzzle: Puzzle, starting_cell: Vector2i, n: int, fill_dir: Ve
 	var count = 0
 	while count < n:
 		var current := Vector2i(starting_cell + (fill_dir * count))
-		puzzle._fill_cell(current.x, current.y)
+		puzzle._fill_cell(current)
 		count += 1
 
 	var next_cell = Vector2i(starting_cell + (fill_dir * count))
 	if mark_next_cell:
-		puzzle.mark_cell(next_cell.x, next_cell.y)
+		puzzle.mark_cell(next_cell)
 	return next_cell
 
 #endregion
