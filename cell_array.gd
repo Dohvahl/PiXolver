@@ -10,6 +10,9 @@ func _init(num_cells: int) -> void:
 	marked_cells = 0
 	filled_cells = 0
 
+func fill(value: CellArray, offset: int = 0) -> void:
+	filled_cells |= (value.filled_cells << offset)
+
 func is_cell_marked(cell: int) -> bool:
 	return marked_cells & (1<<cell)
 
@@ -36,3 +39,6 @@ func equals(other: CellArray) -> bool:
 	var match_filled := filled_cells == other.filled_cells
 	var match_marked := marked_cells == other.marked_cells
 	return match_filled and match_marked
+
+func fill_n_cells(n: int, offset : int = 0) -> void:
+	filled_cells = filled_cells | (((1 << n) - 1) << offset)

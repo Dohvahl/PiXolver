@@ -35,22 +35,22 @@ func _init(init_grid_size: int, initial_state: String) -> void:
 	_setup_clues()
 
 func is_cell_filled(loc: Vector2i) -> bool:
-	assert(is_valid_cell_index(loc.x, loc.y),
+	assert(is_valid_cell_index(loc),
 		"Cell Index outside of grid bounds: [%d, %d]" % [loc.x,loc.y])
 	return rows[loc.y].is_cell_filled(loc.x)
 
 func is_cell_marked(x: int, y: int) -> bool:
-	assert(is_valid_cell_index(x, y),
+	assert(is_valid_cell_index(Vector2i(x, y)),
 		"Cell Index outside of grid bounds: [%d, %d]" % [x,y])
 	return rows[y].is_cell_marked(x)
 
 func is_cell_empty(loc: Vector2i) -> bool:
-	assert(is_valid_cell_index(loc.x, loc.y),
+	assert(is_valid_cell_index(loc),
 		"Cell Index outside of grid bounds: [%d, %d]" % [loc.x, loc.y])
 	return !rows[loc.y].is_cell_marked(loc.x) && !rows[loc.y].is_cell_filled(loc.x)
 
 func toggle_cell(x: int, y: int) -> bool:
-	if !is_valid_cell_index(x, y):
+	if !is_valid_cell_index(Vector2i(x, y)):
 		return false
 
 	if rows[y].is_cell_filled(x):
@@ -61,8 +61,16 @@ func toggle_cell(x: int, y: int) -> bool:
 		columns[x].fill_cell(y)
 	return true
 
+func fill_n_cells(start: Vector2i, n: int, fill_dir: Vector2i) -> void:
+	if !is_valid_cell_index(start) or !is_valid_cell_index(start + (n * fill_dir)):
+		return
+
+	# we also need to fill in the corresponding row/column
+	for i in range(0, n):
+		_fill_cell(start + (i * fill_dir))
+
 func mark_cell(loc: Vector2i) -> bool:
-	if !is_valid_cell_index(loc.x, loc.y):
+	if !is_valid_cell_index(loc):
 		return false
 
 	rows[loc.y].mark_cell(loc.x)
@@ -70,7 +78,7 @@ func mark_cell(loc: Vector2i) -> bool:
 	return true
 
 func unmark_cell(x: int, y: int) -> bool:
-	if !is_valid_cell_index(x, y):
+	if !is_valid_cell_index(Vector2i(x, y)):
 		return false
 
 	rows[y].unmark_cell(x)
@@ -110,8 +118,8 @@ func get_col_clues(index: int) -> Array[Clue]:
 		return []
 	return solution_columns[index].clues
 
-func is_valid_cell_index(x: int, y: int) -> bool:
-	return x >= 0 and x < grid_size and y >= 0 and y < grid_size
+func is_valid_cell_index(cell: Vector2i) -> bool:
+	return cell.x >= 0 and cell.x < grid_size and cell.y >= 0 and cell.y < grid_size
 
 func is_solved() -> bool:
 	for i in range(0, grid_size):
@@ -203,7 +211,7 @@ func _add_col_clue(col: int, start_row: int, clue: int) -> int:
 	return solution_columns[col].record_clue(current_num, start_row, clue)
 
 func _fill_cell(loc: Vector2i) -> bool:
-	if !is_valid_cell_index(loc.x, loc.y):
+	if !is_valid_cell_index(loc):
 		return false
 
 	rows[loc.y].fill_cell(loc.x)

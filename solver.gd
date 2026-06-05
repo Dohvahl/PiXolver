@@ -1,5 +1,7 @@
 extends Node
 
+## NOTE: Technique names taken from the Nonogram wiki: https://en.wikipedia.org/wiki/Nonogram
+
 const INT_MIN := -2 ^ 63
 
 class Solver_Data:
@@ -158,21 +160,30 @@ func _try_line_solve(puzzle: Puzzle, index: int, clues: Array[Clue], iteration_d
 	var start_offset := bounds[0]
 	var end_offset := bounds[1]
 
+	# TODO - Something in here isn't working
+	# Simple Boxes
+	var row := _sb_calculate_intersections(puzzle.grid_size - start_offset - end_offset, clues)
+	if fill_direction == Vector2i.RIGHT: # row
+		puzzle.rows[index].fill(row, start_offset)
+	if fill_direction == Vector2i.DOWN: # column
+		puzzle.columns[index].fill(row, start_offset)
+
+
 	# Start by adding the clues and the spaces in between.
-	var leftover_cells = _distance_to_end(clues, puzzle.grid_size - start_offset - end_offset)
+	#var leftover_cells = _distance_to_end(clues, puzzle.grid_size - start_offset - end_offset)
 	var start_cell := (iteration_direction * index) + (fill_direction * start_offset)
 	var end_cell := start_cell + (fill_direction * (puzzle.grid_size - end_offset - 1))
 
-	# If the sum is the same as the grid size, then the entire row is filled
-	# by the clues
-	if leftover_cells == 0:
-		_fill(puzzle, start_cell, clues, fill_direction)
-		tracker.mark_solved(iteration_direction, index)
-		return true
-	# If the sum is less than the largest clue in the row,
-	# then the row can be partially filled
-	elif leftover_cells <= tracker.get_largest_clue(iteration_direction, index):
-		_partial_fill(puzzle, start_cell, clues, leftover_cells, fill_direction)
+	## If the sum is the same as the grid size, then the entire row is filled
+	## by the clues
+	#if leftover_cells == 0:
+		#_fill(puzzle, start_cell, clues, fill_direction)
+		#tracker.mark_solved(iteration_direction, index)
+		#return true
+	## If the sum is less than the largest clue in the row,
+	## then the row can be partially filled
+	#elif leftover_cells <= tracker.get_largest_clue(iteration_direction, index):
+		#_partial_fill(puzzle, start_cell, clues, leftover_cells, fill_direction)
 
 	_try_edge_cell_checks(puzzle, start_cell, end_cell, clues[0], clues.back(), fill_direction)
 
@@ -194,6 +205,68 @@ func _get_array_bounds(puzzle: Puzzle, index: int, iteration_direction: Vector2i
 		end_cell -= fill_direction
 
 	return [start_offset, end_offset]
+
+## Simple Boxes
+## Create two overlapping bitsets using the clues: one starting from the right, one from the left.
+## Compare the two bitsets for overlapping bits. If the overlapping bits come from the same clue,
+## then that bit can be filled in
+func _sb_calculate_intersections(size: int, clues: Array[Clue]) -> CellArray:
+	var n := clues.size()
+	var lclue := 0
+	var rclue := n - 1
+	var lpos := 0
+	var rpos := size
+	var lstarts : Array[int] = []
+	lstarts.resize(n)
+	var rstarts : Array[int] = []
+	rstarts.resize(n)
+
+	while lclue < n and rclue >= 0:
+		lstarts[lclue] = lpos
+		lpos += clues[lclue]._value + 1
+		lclue += 1
+
+		rpos -= clues[rclue]._value
+		rstarts[rclue] = rpos
+		rpos -= 1
+		rclue -= 1
+
+	var intersect := 0
+	for i in range(0, n):
+		var clue_val = clues[i]._value
+		var left_mask = (1 << (lstarts[i] + clue_val)) - 1
+		var right_mask = ~((1 << rstarts[i]) - 1)
+		intersect |= left_mask & right_mask
+
+	var result := CellArray.new(size)
+	result.filled_cells = intersect
+	return result
+
+#region DEBUG Show Overlap Regions
+	#var left := CellArray.new(size)
+	#var right := CellArray.new(size)
+#
+	#var left_cell := 0
+	#var right_cell := size - 1
+	#var num = clues.size()
+	#for i in range(0, num):
+		#var left_clue = clues[i]
+		#var right_clue = clues[num - 1 - i]
+		#left.fill_n_cells(left_clue._value, left_cell)
+		#right.fill_n_cells(right_clue._value, right_cell - right_clue._value + 1)
+#
+		## keep checking
+		#left_cell += left_clue._value + 1
+		#right_cell -= right_clue._value + 1
+#
+	#if !get_tree().current_scene.intersect:
+		#if get_tree().current_scene.show_left:
+			#return left
+		#else:
+			#return right
+	#else:
+		#return result
+#endregion DEBUG Show Overlap Regions
 
 func _distance_to_end(clues: Array[Clue], grid_size: int) -> int:
 	# sum the clues
@@ -255,16 +328,12 @@ func _partial_fill(puzzle: Puzzle, starting_location: Vector2i, clues: Array[Clu
 				i = next_cell.y
 
 
-# returns the cell the next cell after the fill.
-# this might be outside the bounds of the grid if this fills to the end of the row/column
+## Returns the cell the next cell after the fill.
+## This might be outside the bounds of the grid if this fills to the end of the row/column
 func _fill_n_cells(puzzle: Puzzle, starting_cell: Vector2i, n: int, fill_dir: Vector2i, mark_next_cell: bool = false) -> Vector2i:
-	var count = 0
-	while count < n:
-		var current := Vector2i(starting_cell + (fill_dir * count))
-		puzzle._fill_cell(current)
-		count += 1
+	puzzle.fill_n_cells(starting_cell, n, fill_dir)
 
-	var next_cell = Vector2i(starting_cell + (fill_dir * count))
+	var next_cell = Vector2i(starting_cell + (fill_dir * n))
 	if mark_next_cell:
 		puzzle.mark_cell(next_cell)
 	return next_cell

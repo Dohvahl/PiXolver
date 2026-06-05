@@ -1,6 +1,17 @@
 extends Control
 
-
+@export var show_left := false :
+	set(new):
+		show_left = new
+		if solver:
+			solver.run_single(puzzle, 0, debug)
+		queue_redraw()
+@export var intersect := false :
+	set(new):
+		intersect = new
+		if solver:
+			solver.run_single(puzzle, 0, debug)
+		queue_redraw()
 var puzzle : Puzzle							# data representation of the puzzle
 
 @export_range(1, 5000) var puzzle_number : int = 1
@@ -78,7 +89,7 @@ func _input(event: InputEvent) -> void:
 
 	if event is InputEventMouseButton and event.is_pressed():
 		var cell_clicked = _get_cell_index_from_position(event.position)
-		if !puzzle.is_valid_cell_index(cell_clicked.x, cell_clicked.y):
+		if !puzzle.is_valid_cell_index(cell_clicked):
 			return
 
 		if event.button_index == MOUSE_BUTTON_LEFT:	# left click
