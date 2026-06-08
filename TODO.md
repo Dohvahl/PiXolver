@@ -16,3 +16,4 @@
 
 # OPTIMIZE
 - [ ] solver.partial_fill may be able to be simplified
+- [ ] stack of "lines to solve" instead of just looping through all
