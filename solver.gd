@@ -45,6 +45,31 @@ class Solver_Data:
 		elif iter_direction == Vector2i.RIGHT:
 			solved_columns.set(index, null)
 
+
+class Result_Stats:
+	var full : int
+	var correct : int
+	var incorrectly_filled : int
+	var missing : int
+	var diff : int
+	var solution_bits: int
+
+	func calculate(current: int, solution: int, width: int) -> void:
+		full = (1 << width) - 1
+
+		correct = _popcount(current & solution)
+		incorrectly_filled = _popcount(current & ~solution & full)
+		missing = _popcount(~current & solution & full)
+		diff = _popcount(current ^ solution)
+		solution_bits = _popcount(solution)
+
+	func _popcount(x: int) -> int:
+		var count := 0
+		while x != 0:
+			x &= x - 1
+			count += 1
+		return count
+
 @export var max_iterations := 5
 var tracker : Solver_Data
 
@@ -56,7 +81,7 @@ func reset() -> void:
 	if tracker:
 		tracker.reset()
 
-func run(puzzle: Puzzle, debug: bool = false) -> bool:
+func run(puzzle: Puzzle, debug: bool = false) -> Dictionary:
 	# run the solver until the puzzle is solved, but to keep it from getting
 	# into an infinite loop, we cap the number of iterations
 	var iterations := 1
@@ -67,13 +92,29 @@ func run(puzzle: Puzzle, debug: bool = false) -> bool:
 		if iterations - 1 >= max_iterations:
 			break
 
+	var results := {}
 	if debug:
 		if puzzle.is_solved():
-			print("We did it!")
+			results.set("is_solved", true)
 		else:
-			print("FAILURE!")
-		print("Iterations: %d" % (iterations - 1))
-	return puzzle.is_solved()
+			# get some stats on the state of the puzzle
+			var correct := 0
+			var diff := 0
+			var sol_bits := 0
+			var total := puzzle.grid_size * puzzle.grid_size
+			for i in range(0, puzzle.grid_size):
+				var stats = Result_Stats.new()
+				stats.calculate(puzzle.rows[i].filled_cells, puzzle.solution_rows[i].filled_cells, puzzle.grid_size)
+				correct += stats.correct
+				diff += stats.diff
+				sol_bits += stats.solution_bits
+
+			results.set("filled", float(correct) / sol_bits)
+			results.set("solved", float(total - diff) / total)
+			results.set("incorrect", diff)
+
+		results.set("iterations", iterations)
+	return results
 
 ## returns true if additional iterations are required
 func run_single(puzzle: Puzzle, iterations: int, debug: bool = false) -> bool:

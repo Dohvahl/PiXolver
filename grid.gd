@@ -103,7 +103,14 @@ func _input(event: InputEvent) -> void:
 			elif puzzle.mark_cell(cell_clicked):
 				queue_redraw()
 	elif event.is_action_pressed("run_solver"):
-		solver.run(puzzle, debug)
+		var results = solver.run(puzzle, debug)
+		if results.get("is_solved"):
+			print("Solved!")
+		else:
+			print("\n")
+			print("Percent Correctly Filled: %.2f%%" % (float(results.get("filled")) * 100))
+			print("Percent Correct: %.2f%%" % (float(results.get("solved")) * 100))
+			print("Incorrect Cells: %d/%d" % [int(results.get("incorrect")), puzzle.grid_size * puzzle.grid_size])
 		queue_redraw()
 	elif event.is_action_pressed("run_solver_single"):
 		solver.run_single(puzzle, iterations, debug)
