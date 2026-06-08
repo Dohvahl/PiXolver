@@ -13,6 +13,7 @@
 - [x] change rendering of individual clue if solved
 - [ ] change fill/partial fill to use [Simple Boxes](https://en.wikipedia.org/wiki/Nonogram#Simple_boxes) check
 - [ ] detect and mark start/end cells that are just passed the closest clue
+- [ ] show percentage solved (full puzzle)
 
 # MAYBE
 - [ ] make `is_row_solved` more sophisticated
