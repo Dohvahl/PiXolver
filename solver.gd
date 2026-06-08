@@ -220,7 +220,11 @@ func _try_line_solve(puzzle: Puzzle, index: int, clues: Array[Clue], iteration_d
 	var start_cell := (iteration_direction * index) + (fill_direction * start_offset)
 	var end_cell := (iteration_direction * index) + (fill_direction * (puzzle.grid_size - end_offset - 1))
 
-	_try_edge_cell_checks(puzzle, start_cell, end_cell, clues[0], clues.back(), fill_direction)
+	# Checks related to the edges of the row/column
+	var first_clue = clues[0]
+	var last_clue = clues.back()
+	_try_glueing(puzzle, start_cell, end_cell, first_clue, last_clue, fill_direction)
+	_try_mercury(puzzle, start_cell, end_cell, first_clue, last_clue, fill_direction)
 
 	return _is_solved(puzzle, index, iteration_direction)
 
@@ -303,16 +307,10 @@ func _sb_calculate_intersections(size: int, clues: Array[Clue]) -> CellArray:
 		#return result
 #endregion DEBUG Show Overlap Regions
 
-func _distance_to_end(clues: Array[Clue], grid_size: int) -> int:
-	# sum the clues
-	var accumulate = func(accum: int, clue: Clue): return accum + clue._value
-	var sum = clues.reduce(accumulate, 0)
-
-	# the number of spaces is the number of n-1, where n is the number of clues
-	var spaces = clues.size() - 1
-	return grid_size - (sum + spaces)
-
-func _try_edge_cell_checks(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, first_clue: Clue, last_clue: Clue, fill_direction: Vector2i) -> void:
+## Glue
+## Check for filled squares that are on or near the edges of the line, but not farther away
+## than the length the first/last clue.
+func _try_glueing(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, first_clue: Clue, last_clue: Clue, fill_direction: Vector2i) -> void:
 	# Check if the first/last cell is filled, but the first/last clue isn't yet completed.
 	# If so, we can fill in the clues
 	if puzzle.is_cell_filled(start_cell) and !first_clue.is_solved():
@@ -322,6 +320,7 @@ func _try_edge_cell_checks(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vecto
 		_fill_n_cells(puzzle, end_cell, last_clue._value, -fill_direction, true)
 		last_clue.toggle_solved()
 
+func _try_mercury(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, first_clue: Clue, last_clue: Clue, fill_direction: Vector2i) -> void:
 	# Check if there are filled cells 1 away from the first/last clues amount
 	# For example, if the first clue is 3, and there are 3 empty cells, then a filled cell,
 	# we can safely mark the first cell. Similar logic holds for the last cell.
