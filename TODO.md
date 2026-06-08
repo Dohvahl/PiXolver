@@ -14,6 +14,9 @@
 - [ ] change fill/partial fill to use [Simple Boxes](https://en.wikipedia.org/wiki/Nonogram#Simple_boxes) check
 - [ ] detect and mark start/end cells that are just passed the closest clue
 
+# MAYBE
+- [ ] make `is_row_solved` more sophisticated
+
 # OPTIMIZE
 - [ ] solver.partial_fill may be able to be simplified
 - [ ] stack of "lines to solve" instead of just looping through all
