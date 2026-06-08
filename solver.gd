@@ -217,22 +217,8 @@ func _try_line_solve(puzzle: Puzzle, index: int, clues: Array[Clue], iteration_d
 	if fill_direction == Vector2i.DOWN: # column
 		puzzle.fill_column(index, line.filled_cells, start_offset)
 
-
-	# Start by adding the clues and the spaces in between.
-	#var leftover_cells = _distance_to_end(clues, puzzle.grid_size - start_offset - end_offset)
 	var start_cell := (iteration_direction * index) + (fill_direction * start_offset)
 	var end_cell := (iteration_direction * index) + (fill_direction * (puzzle.grid_size - end_offset - 1))
-
-	## If the sum is the same as the grid size, then the entire row is filled
-	## by the clues
-	#if leftover_cells == 0:
-		#_fill(puzzle, start_cell, clues, fill_direction)
-		#tracker.mark_solved(iteration_direction, index)
-		#return true
-	## If the sum is less than the largest clue in the row,
-	## then the row can be partially filled
-	#elif leftover_cells <= tracker.get_largest_clue(iteration_direction, index):
-		#_partial_fill(puzzle, start_cell, clues, leftover_cells, fill_direction)
 
 	_try_edge_cell_checks(puzzle, start_cell, end_cell, clues[0], clues.back(), fill_direction)
 
