@@ -210,7 +210,6 @@ func _try_line_solve(puzzle: Puzzle, index: int, clues: Array[Clue], iteration_d
 	var start_offset := bounds[0]
 	var end_offset := bounds[1]
 
-	# TODO - Something in here isn't working
 	# Simple Boxes
 	var line := _sb_calculate_intersections(puzzle.grid_size - start_offset - end_offset, clues)
 	if fill_direction == Vector2i.RIGHT: # row
@@ -222,7 +221,7 @@ func _try_line_solve(puzzle: Puzzle, index: int, clues: Array[Clue], iteration_d
 	# Start by adding the clues and the spaces in between.
 	#var leftover_cells = _distance_to_end(clues, puzzle.grid_size - start_offset - end_offset)
 	var start_cell := (iteration_direction * index) + (fill_direction * start_offset)
-	var end_cell := fill_direction * (puzzle.grid_size - end_offset - 1)
+	var end_cell := (iteration_direction * index) + (fill_direction * (puzzle.grid_size - end_offset - 1))
 
 	## If the sum is the same as the grid size, then the entire row is filled
 	## by the clues
