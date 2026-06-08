@@ -109,6 +109,11 @@ func _input(event: InputEvent) -> void:
 		solver.run_single(puzzle, iterations, debug)
 		iterations += 1
 		queue_redraw()
+	elif event.is_action_pressed("reset"):
+		puzzle.reset()
+		solver.reset()
+		iterations = 0
+		queue_redraw()
 
 #region "Private" functions
 

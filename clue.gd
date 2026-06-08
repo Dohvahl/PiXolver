@@ -1,9 +1,10 @@
-class_name Clue
-
 func _init(in_index: int, in_start: int, in_value: int) -> void:
 	_index = in_index
 	_starting_cell = in_start
 	_value = in_value
+	_solved = false
+
+func reset() -> void:
 	_solved = false
 
 func toggle_solved() -> void:

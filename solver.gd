@@ -17,6 +17,12 @@ class Solver_Data:
 		-1: null, # initial dummy entry to set the Dictionary type
 	}
 
+	func reset() -> void:
+		solved_rows.clear()
+		solved_columns.clear()
+		largest_row_clues.clear()
+		largest_column_clues.clear()
+
 	func get_largest_clue(iter_direction: Vector2i, index: int) -> int:
 		if iter_direction == Vector2i.DOWN:
 			return largest_row_clues[index]
@@ -45,6 +51,10 @@ var tracker : Solver_Data
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
 	tracker = Solver_Data.new()
+
+func reset() -> void:
+	if tracker:
+		tracker.reset()
 
 func run(puzzle: Puzzle, debug: bool = false) -> bool:
 	# run the solver until the puzzle is solved, but to keep it from getting
@@ -162,11 +172,11 @@ func _try_line_solve(puzzle: Puzzle, index: int, clues: Array[Clue], iteration_d
 
 	# TODO - Something in here isn't working
 	# Simple Boxes
-	var row := _sb_calculate_intersections(puzzle.grid_size - start_offset - end_offset, clues)
+	var line := _sb_calculate_intersections(puzzle.grid_size - start_offset - end_offset, clues)
 	if fill_direction == Vector2i.RIGHT: # row
-		puzzle.rows[index].fill(row, start_offset)
+		puzzle.fill_row(index, line.filled_cells, start_offset)
 	if fill_direction == Vector2i.DOWN: # column
-		puzzle.columns[index].fill(row, start_offset)
+		puzzle.fill_column(index, line.filled_cells, start_offset)
 
 
 	# Start by adding the clues and the spaces in between.

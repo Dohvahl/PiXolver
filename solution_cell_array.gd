@@ -8,6 +8,11 @@ var clues : Array[Clue]
 var max_clue_value : int = INT_MIN
 var min_clue_value : int = INT_MAX
 
+func reset() -> void:
+	#super.reset()
+	for clue in clues:
+		clue.reset()
+
 func record_clue(in_index: int, in_start: int, in_value: int) -> int:
 	max_clue_value = max(max_clue_value, in_value)
 	min_clue_value = min(min_clue_value, in_value)

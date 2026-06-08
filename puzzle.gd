@@ -34,6 +34,15 @@ func _init(init_grid_size: int, initial_state: String) -> void:
 	# add clues to the top and left side of the puzzle
 	_setup_clues()
 
+func reset() -> void:
+	# reset the puzzle
+	for i in range(0, grid_size):
+		rows[i].reset()
+		columns[i].reset()
+
+		solution_rows[i].reset()
+		solution_columns[i].reset()
+
 func is_cell_filled(loc: Vector2i) -> bool:
 	assert(is_valid_cell_index(loc),
 		"Cell Index outside of grid bounds: [%d, %d]" % [loc.x,loc.y])
@@ -60,6 +69,22 @@ func toggle_cell(x: int, y: int) -> bool:
 		rows[y].fill_cell(x)
 		columns[x].fill_cell(y)
 	return true
+
+func fill_row(index: int, value: int, offset: int = 0) -> void:
+	rows[index].fill(value, offset)
+
+	# update the rows to match the column
+	for i in range(0, grid_size):
+		if (value & (1 << i)):
+			columns[offset + i].fill_cell(index)
+
+func fill_column(index: int, value: int, offset: int = 0) -> void:
+	columns[index].fill(value, offset)
+
+	# update the rows to match the column
+	for i in range(0, grid_size):
+		if (value & (1 << i)):
+			rows[offset + i].fill_cell(index)
 
 func fill_n_cells(start: Vector2i, n: int, fill_dir: Vector2i) -> void:
 	if !is_valid_cell_index(start) or !is_valid_cell_index(start + (n * fill_dir)):
