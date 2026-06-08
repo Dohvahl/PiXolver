@@ -98,7 +98,7 @@ func _input(event: InputEvent) -> void:
 				queue_redraw()
 		elif event.button_index == MOUSE_BUTTON_RIGHT: # right click
 			# Mark cell
-			if puzzle.is_cell_marked(cell_clicked.x, cell_clicked.y) && puzzle.unmark_cell(cell_clicked.x, cell_clicked.y):
+			if puzzle.is_cell_marked(cell_clicked) && puzzle.unmark_cell(cell_clicked.x, cell_clicked.y):
 				queue_redraw()
 			elif puzzle.mark_cell(cell_clicked):
 				queue_redraw()
@@ -210,7 +210,7 @@ func _draw_puzzle_grid() -> void:
 			var cell_location = _get_cell_index_from_position(rect.position)
 			if puzzle.is_cell_filled(cell_location):
 				draw_rect(rect, Color.BLACK, true)
-			elif puzzle.is_cell_marked(cell_location.x, cell_location.y):
+			elif puzzle.is_cell_marked(cell_location):
 				draw_rect(rect, Color.RED, true)
 			else:
 				draw_rect(rect, Color.WHITE, false, 1)

@@ -48,10 +48,10 @@ func is_cell_filled(loc: Vector2i) -> bool:
 		"Cell Index outside of grid bounds: [%d, %d]" % [loc.x,loc.y])
 	return rows[loc.y].is_cell_filled(loc.x)
 
-func is_cell_marked(x: int, y: int) -> bool:
-	assert(is_valid_cell_index(Vector2i(x, y)),
-		"Cell Index outside of grid bounds: [%d, %d]" % [x,y])
-	return rows[y].is_cell_marked(x)
+func is_cell_marked(loc: Vector2i) -> bool:
+	assert(is_valid_cell_index(loc),
+		"Cell Index outside of grid bounds: [%d, %d]" % [loc.x,loc.y])
+	return rows[loc.y].is_cell_marked(loc.x)
 
 func is_cell_empty(loc: Vector2i) -> bool:
 	assert(is_valid_cell_index(loc),

@@ -229,13 +229,13 @@ func _get_array_bounds(puzzle: Puzzle, index: int, iteration_direction: Vector2i
 	# previous iterations may have marked cells at the start or end, these can be skipped
 	var start_offset := 0
 	var starting_cell := iteration_direction * index
-	while puzzle.is_cell_marked(starting_cell.x, starting_cell.y):
+	while puzzle.is_cell_marked(starting_cell):
 		start_offset += 1
 		starting_cell += fill_direction
 
 	var end_offset := 0
 	var end_cell := (iteration_direction * index) + (fill_direction * (puzzle.grid_size - 1))
-	while puzzle.is_cell_marked(end_cell.x, end_cell.y):
+	while puzzle.is_cell_marked(end_cell):
 		end_offset += 1
 		end_cell -= fill_direction
 
