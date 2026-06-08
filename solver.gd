@@ -92,28 +92,27 @@ func run(puzzle: Puzzle, debug: bool = false) -> Dictionary:
 		if iterations - 1 >= max_iterations:
 			break
 
-	var results := {}
-	if debug:
-		if puzzle.is_solved():
-			results.set("is_solved", true)
-		else:
-			# get some stats on the state of the puzzle
-			var correct := 0
-			var diff := 0
-			var sol_bits := 0
-			var total := puzzle.grid_size * puzzle.grid_size
-			for i in range(0, puzzle.grid_size):
-				var stats = Result_Stats.new()
-				stats.calculate(puzzle.rows[i].filled_cells, puzzle.solution_rows[i].filled_cells, puzzle.grid_size)
-				correct += stats.correct
-				diff += stats.diff
-				sol_bits += stats.solution_bits
+	var results := {"iterations": iterations}
 
-			results.set("filled", float(correct) / sol_bits)
-			results.set("solved", float(total - diff) / total)
-			results.set("incorrect", diff)
+	if puzzle.is_solved():
+		results.set("is_solved", true)
+	else:
+		# get some stats on the state of the puzzle
+		var correct := 0
+		var diff := 0
+		var sol_bits := 0
+		var total := puzzle.grid_size * puzzle.grid_size
+		for i in range(0, puzzle.grid_size):
+			var stats = Result_Stats.new()
+			stats.calculate(puzzle.rows[i].filled_cells, puzzle.solution_rows[i].filled_cells, puzzle.grid_size)
+			correct += stats.correct
+			diff += stats.diff
+			sol_bits += stats.solution_bits
 
-		results.set("iterations", iterations)
+		results.set("filled", float(correct) / sol_bits)
+		results.set("solved", float(total - diff) / total)
+		results.set("incorrect", diff)
+
 	return results
 
 ## returns true if additional iterations are required
@@ -223,7 +222,7 @@ func _try_line_solve(puzzle: Puzzle, index: int, clues: Array[Clue], iteration_d
 	# Start by adding the clues and the spaces in between.
 	#var leftover_cells = _distance_to_end(clues, puzzle.grid_size - start_offset - end_offset)
 	var start_cell := (iteration_direction * index) + (fill_direction * start_offset)
-	var end_cell := start_cell + (fill_direction * (puzzle.grid_size - end_offset - 1))
+	var end_cell := fill_direction * (puzzle.grid_size - end_offset - 1)
 
 	## If the sum is the same as the grid size, then the entire row is filled
 	## by the clues

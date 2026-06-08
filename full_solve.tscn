@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://balk2vcvl4m0y"]
 
-[ext_resource type="Script" path="res://full_solve.gd" id="1_ssq6r"]
+[ext_resource type="Script" uid="uid://dtcjk73uo0abt" path="res://full_solve.gd" id="1_ssq6r"]
 [ext_resource type="PackedScene" uid="uid://1gnjb8s457r2" path="res://solver.tscn" id="2_5fay3"]
 
 [node name="FullSolve" type="Node" unique_id=688364892]
