@@ -58,6 +58,33 @@ func is_cell_empty(loc: Vector2i) -> bool:
 		"Cell Index outside of grid bounds: [%d, %d]" % [loc.x, loc.y])
 	return !rows[loc.y].is_cell_marked(loc.x) && !rows[loc.y].is_cell_filled(loc.x)
 
+## Get the first filled cell, starting from start_cell, up to count
+## Returns -1 if none are set
+func get_first_filled(start_cell: Vector2i, fill_direction: Vector2i, count: int = grid_size - 1) -> int:
+	var filled = -1
+	if fill_direction == Vector2i.RIGHT: # row
+		filled = rows[start_cell.y].filled_cells
+		return BitOps.FIRST_SET(filled, start_cell.x, count)
+	elif fill_direction == Vector2i.DOWN: # column
+		filled = columns[start_cell.x].filled_cells
+		return BitOps.FIRST_SET(filled, start_cell.y, count)
+
+	return filled
+
+## Get the last filled cell, starting from end_cell, up to end_cell-count
+## Returns -1 if none are set
+func get_last_filled(end_cell: Vector2i, fill_direction: Vector2i, count: int = grid_size - 1) -> int:
+	var filled := -1
+	var offset := 0
+	if fill_direction == Vector2i.RIGHT: # row
+		filled = rows[end_cell.y].filled_cells
+		offset = end_cell.x
+	elif fill_direction == Vector2i.DOWN: # column
+		filled = columns[end_cell.x].filled_cells
+		offset = end_cell.y
+
+	return BitOps.LAST_SET(filled, offset, count)
+
 func toggle_cell(x: int, y: int) -> bool:
 	if !is_valid_cell_index(Vector2i(x, y)):
 		return false

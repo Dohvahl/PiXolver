@@ -154,8 +154,6 @@ func run_single(puzzle: Puzzle, iterations: int, debug: bool = false) -> bool:
 	var solution_start := Time.get_ticks_usec()
 #endregion DEBUG Solve Timer Start
 
-	var should_continue := true
-
 	# check each set of row and column clues
 	for row_index in range(0, puzzle.grid_size):
 		# try to solve the row
@@ -313,12 +311,29 @@ func _sb_calculate_intersections(size: int, clues: Array[Clue]) -> CellArray:
 func _try_glueing(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, first_clue: Clue, last_clue: Clue, fill_direction: Vector2i) -> void:
 	# Check if the first/last cell is filled, but the first/last clue isn't yet completed.
 	# If so, we can fill in the clues
-	if puzzle.is_cell_filled(start_cell) and !first_clue.is_solved():
-		_fill_n_cells(puzzle, start_cell, first_clue._value, fill_direction, true)
-		first_clue.toggle_solved()
-	if puzzle.is_cell_filled(end_cell) and !last_clue.is_solved():
-		_fill_n_cells(puzzle, end_cell, last_clue._value, -fill_direction, true)
-		last_clue.toggle_solved()
+	if !first_clue.is_solved():
+		# if any cells < first clue are filled,
+		# then we can fill from that filled cell up to the clue
+		var lowest_set := puzzle.get_first_filled(start_cell, fill_direction, first_clue._value)
+		if lowest_set > -1:
+			print("Glue from %s + %d, up to %d" % [str(start_cell), lowest_set, first_clue._value])
+			var first_filled = start_cell + (fill_direction * lowest_set)
+			var mark := lowest_set == 0
+			_fill_n_cells(puzzle, first_filled, first_clue._value, fill_direction, mark)
+			if mark: first_clue.toggle_solved()
+
+	if !last_clue.is_solved():
+		# if any cells >= length - last clue,
+		# then we can fill from that filled cell up to the clue
+		var highest_set := puzzle.get_last_filled(end_cell, fill_direction, last_clue._value)
+		if highest_set > -1:
+			print("Highest: %d" % highest_set)
+			var last_filled = end_cell - (fill_direction * (puzzle.grid_size - (highest_set + 1)))
+			print("Glue from %s, up %d" % [str(last_filled), last_clue._value])
+			var mark := highest_set == puzzle.grid_size - 1
+			_fill_n_cells(puzzle, last_filled, last_clue._value, -fill_direction, mark)
+			if mark: last_clue.toggle_solved()
+
 
 func _try_mercury(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, first_clue: Clue, last_clue: Clue, fill_direction: Vector2i) -> void:
 	# Check if there are filled cells 1 away from the first/last clues amount
