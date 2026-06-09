@@ -1,5 +1,6 @@
 class_name Puzzle
 
+var puzzle_file : String
 
 var grid_size: int
 var rows: Array[CellArray]
@@ -11,7 +12,8 @@ var all_marked: PackedByteArray
 var max_row_clues := 0
 var max_col_clues := 0
 
-func _init(init_grid_size: int, initial_state: String) -> void:
+func _init(in_puzzle_file: String, init_grid_size: int, initial_state: String) -> void:
+	puzzle_file = in_puzzle_file
 	grid_size = init_grid_size
 
 	# initialize the puzzle that we'll use in normal play

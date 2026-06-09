@@ -53,7 +53,7 @@ func _ready() -> void:
 	assert(puzzle_file, "Failed to open sample puzzle %d: '%s'" % [puzzle_number, FileAccess.get_open_error()])
 	initial_state = puzzle_file.get_as_text()
 
-	puzzle = Puzzle.new(grid_size, initial_state)
+	puzzle = Puzzle.new(puzzle_file.get_path(), grid_size, initial_state)
 
 	_total_width = CELL_SIZE * (puzzle.max_row_clues + grid_size)
 	_total_height = CELL_SIZE * (puzzle.max_col_clues + grid_size)

@@ -20,7 +20,7 @@ func _ready() -> void:
 			print("Failed to open sample puzzle '%s': %s" % [file, FileAccess.get_open_error()])
 			continue
 
-		sample_puzzles[i] = Puzzle.new(30, sample_puzzle.get_as_text())
+		sample_puzzles[i] = Puzzle.new(sample_puzzle.get_path(), 30, sample_puzzle.get_as_text())
 		sample_puzzle.close()
 		i += 1
 
@@ -33,13 +33,13 @@ func _ready() -> void:
 	var min_cor_fill_pct := INF
 	var max_cor_fill_pct := -INF
 	var avg_cor_fill_pct := 0.0
-	var max_cor_fill_puzzle := 0
+	var max_cor_fill_puzzle := ""
 
 	# stats on correct cells. This includes correctly empty cells
 	var min_sol_pct := INF
 	var max_sol_pct := -INF
 	var avg_sol_pct := 0.0
-	var max_sol_puzzle := 0
+	var max_sol_puzzle := ""
 
 	# stats on incorrect cells
 	var min_diff := INF
@@ -67,13 +67,13 @@ func _ready() -> void:
 			min_cor_fill_pct = min(pct_filled, min_cor_fill_pct)
 			if pct_filled > max_cor_fill_pct:
 				max_cor_fill_pct = pct_filled
-				max_cor_fill_puzzle = puzzle_index + 1
+				max_cor_fill_puzzle = puzzle.puzzle_file
 			avg_cor_fill_pct += pct_filled
 
 			min_sol_pct = min(pct_solved, min_sol_pct)
 			if pct_solved > max_sol_pct:
 				max_sol_pct = pct_solved
-				max_sol_puzzle = puzzle_index
+				max_sol_puzzle = puzzle.puzzle_file
 			avg_sol_pct += pct_solved
 
 			if incorrect:
@@ -99,11 +99,11 @@ func _ready() -> void:
 	print("Average solve time: %0.2f microsecs" % (float(end_time - start_time) / total_run))
 
 	print("\nMin Correctly Filled Cells: %.2f%%" % (min_cor_fill_pct * 100))
-	print("Max Correctly Filled Cells: %.2f%%, Puzzle#%d" % [(max_cor_fill_pct * 100), max_cor_fill_puzzle])
+	print("Max Correctly Filled Cells: %.2f%%, Puzzle - %s" % [(max_cor_fill_pct * 100), max_cor_fill_puzzle])
 	print("Average Correctly Filled Cells: %.2f%%" % (avg_cor_fill_pct * 100))
 
 	print("\nMin Correct Cells: %.2f%%" % (min_sol_pct * 100))
-	print("Max Correct Cells: %.2f%%, Puzzle#%d" % [(max_sol_pct * 100), max_sol_puzzle])
+	print("Max Correct Cells: %.2f%%, Puzzle - %s" % [(max_sol_pct * 100), max_sol_puzzle])
 	print("Average Correct Cells: %.2f%%" % (avg_sol_pct * 100))
 
 	print("\nMin Incorrect Cells: %d/%d" % [min_diff, total_cells])
