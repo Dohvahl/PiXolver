@@ -243,6 +243,7 @@ func _try_line_solve(puzzle: Puzzle, index: int, clues: Array[Clue], iteration_d
 	var last_clue = clues.back()
 	_try_glueing(puzzle, start_cell, end_cell, first_clue, last_clue, fill_direction)
 	_try_mercury(puzzle, start_cell, end_cell, first_clue, last_clue, fill_direction)
+	_try_forcing_spaces(puzzle, start_cell, end_cell, first_clue, last_clue, fill_direction)
 
 	return _is_solved(puzzle, index, iteration_direction)
 
@@ -366,6 +367,25 @@ func _try_mercury(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, firs
 		if puzzle.is_cell_filled(end_cell + (-fill_direction * (last_clue._value))) and puzzle.get_num_empty_cells(end_cell, -fill_direction) == last_clue._value:
 			puzzle.mark_cell(end_cell)
 
+func _try_forcing_spaces(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, first_clue: Clue, last_clue: Clue, fill_direction: Vector2i) -> void:
+	# if the space between the start/end cells and the next marked cell is too small for the first/last clue
+	# then we can mark the in-between cells
+	if !first_clue.is_solved():
+		var lowest_marked = puzzle.get_first_marked(start_cell, fill_direction, first_clue._value)
+		if lowest_marked > -1:
+			if lowest_marked < first_clue._value:
+				_mark_n_cells(puzzle, start_cell, lowest_marked, fill_direction)
+
+	if !last_clue.is_solved():
+		var highest_marked = puzzle.get_last_marked(end_cell, fill_direction, last_clue._value)
+		if highest_marked > -1:
+			var zerod_end = end_cell * fill_direction
+			var end := maxi(zerod_end.x, zerod_end.y)
+			var num_spaces = end - highest_marked
+			if num_spaces < last_clue._value:
+				var last_marked = end_cell - (fill_direction * (end - highest_marked))
+				_mark_n_cells(puzzle, last_marked + fill_direction, num_spaces, fill_direction)
+
 func _fill(puzzle: Puzzle, starting_location: Vector2i, clues: Array[Clue], fill_direction: Vector2i) -> void:
 	# fill in the row/column
 	var i := 0
@@ -396,7 +416,6 @@ func _partial_fill(puzzle: Puzzle, starting_location: Vector2i, clues: Array[Clu
 			elif fill_direction == Vector2i.DOWN:
 				i = next_cell.y
 
-
 ## Returns the cell the next cell after the fill.
 ## This might be outside the bounds of the grid if this fills to the end of the row/column
 func _fill_n_cells(puzzle: Puzzle, starting_cell: Vector2i, n: int, fill_dir: Vector2i, mark_next_cell: bool = false) -> Vector2i:
@@ -406,5 +425,11 @@ func _fill_n_cells(puzzle: Puzzle, starting_cell: Vector2i, n: int, fill_dir: Ve
 	if mark_next_cell:
 		puzzle.mark_cell(next_cell)
 	return next_cell
+
+## Returns the cell the next cell after the fill.
+## This might be outside the bounds of the grid if this fills to the end of the row/column
+func _mark_n_cells(puzzle: Puzzle, starting_cell: Vector2i, n: int, fill_dir: Vector2i) -> Vector2i:
+	puzzle.mark_n_cells(starting_cell, n, fill_dir)
+	return Vector2i(starting_cell + (fill_dir * n))
 
 #endregion

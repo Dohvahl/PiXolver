@@ -87,6 +87,33 @@ func get_last_filled(end_cell: Vector2i, fill_direction: Vector2i, count: int = 
 
 	return BitOps.LAST_SET(filled, offset - count + 1, count)
 
+## Get the first marked cell, starting from start_cell, up to count
+## Returns -1 if none are set
+func get_first_marked(start_cell: Vector2i, fill_direction: Vector2i, count: int = grid_size - 1) -> int:
+	var marked = -1
+	if fill_direction == Vector2i.RIGHT: # row
+		marked = rows[start_cell.y].marked_cells
+		return BitOps.FIRST_SET(marked, start_cell.x, count)
+	elif fill_direction == Vector2i.DOWN: # column
+		marked = columns[start_cell.x].marked_cells
+		return BitOps.FIRST_SET(marked, start_cell.y, count)
+
+	return marked
+
+## Get the last marked cell, starting from end_cell, up to end_cell-count
+## Returns -1 if none are set
+func get_last_marked(end_cell: Vector2i, fill_direction: Vector2i, count: int = grid_size - 1) -> int:
+	var marked := -1
+	var offset := 0
+	if fill_direction == Vector2i.RIGHT: # row
+		marked = rows[end_cell.y].marked_cells
+		offset = end_cell.x
+	elif fill_direction == Vector2i.DOWN: # column
+		marked = columns[end_cell.x].marked_cells
+		offset = end_cell.y
+
+	return BitOps.LAST_SET(marked, offset - count + 1, count)
+
 func toggle_cell(x: int, y: int) -> bool:
 	if !is_valid_cell_index(Vector2i(x, y)):
 		return false
@@ -136,6 +163,14 @@ func mark_cell(loc: Vector2i) -> bool:
 	rows[loc.y].mark_cell(loc.x)
 	columns[loc.x].mark_cell(loc.y)
 	return true
+
+func mark_n_cells(start: Vector2i, n: int, fill_dir: Vector2i) -> void:
+	if !is_valid_cell_index(start):
+		return
+
+	# we also need to fill in the corresponding row/column
+	for i in range(0, n):
+		mark_cell(start + (i * fill_dir))
 
 func unmark_cell(x: int, y: int) -> bool:
 	if !is_valid_cell_index(Vector2i(x, y)):
