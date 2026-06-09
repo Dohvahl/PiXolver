@@ -83,7 +83,7 @@ func get_last_filled(end_cell: Vector2i, fill_direction: Vector2i, count: int = 
 		filled = columns[end_cell.x].filled_cells
 		offset = end_cell.y
 
-	return BitOps.LAST_SET(filled, offset, count)
+	return BitOps.LAST_SET(filled, offset - count + 1, count)
 
 func toggle_cell(x: int, y: int) -> bool:
 	if !is_valid_cell_index(Vector2i(x, y)):

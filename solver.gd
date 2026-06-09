@@ -175,6 +175,19 @@ func run_single(puzzle: Puzzle, iterations: int, debug: bool = false) -> bool:
 	# we're not improving the solution, so there's no point in continuing
 	return true
 
+func run_rows(puzzle: Puzzle) -> void:
+	# check each set of row and column clues
+	for row_index in range(0, puzzle.grid_size):
+		# try to solve the row
+		#print("Attempting to solve row %d" % row_index)
+		_try(puzzle, row_index, puzzle.get_row_clues(row_index), Vector2i.DOWN, Vector2i.RIGHT)
+
+func run_columns(puzzle: Puzzle) -> void:
+	for column_index in range(0, puzzle.grid_size):
+		# try to solve the column
+		#print("Attempting to solve column %d" % column_index)
+		_try(puzzle, column_index, puzzle.get_col_clues(column_index), Vector2i.RIGHT, Vector2i.DOWN)
+
 #region "Private" solver functions
 
 ## Returns true if this solved the row/column
@@ -271,8 +284,9 @@ func _sb_calculate_intersections(size: int, clues: Array[Clue]) -> CellArray:
 	var intersect := 0
 	for i in range(0, n):
 		var clue_val = clues[i]._value
-		var left_mask = (1 << (lstarts[i] + clue_val)) - 1
+		var left_mask = BitOps.FIELD_MASK(lstarts[i] + clue_val)
 		var right_mask = ~((1 << rstarts[i]) - 1)
+		var clue_intersect = left_mask & right_mask
 		intersect |= left_mask & right_mask
 
 	var result := CellArray.new(size)
@@ -318,7 +332,7 @@ func _try_glueing(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, firs
 		if lowest_set > -1:
 			var first_filled = start_cell + (fill_direction * lowest_set)
 			var mark := lowest_set == 0
-			_fill_n_cells(puzzle, first_filled, first_clue._value, fill_direction, mark)
+			_fill_n_cells(puzzle, first_filled, first_clue._value - lowest_set, fill_direction, mark)
 			if mark: first_clue.toggle_solved()
 
 	if !last_clue.is_solved():
@@ -327,8 +341,9 @@ func _try_glueing(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, firs
 		var highest_set := puzzle.get_last_filled(end_cell, fill_direction, last_clue._value)
 		if highest_set > -1:
 			var last_filled = end_cell - (fill_direction * (puzzle.grid_size - (highest_set + 1)))
+			var fill_amount = last_clue._value - (puzzle.grid_size - highest_set) + 1
 			var mark := highest_set == puzzle.grid_size - 1
-			_fill_n_cells(puzzle, last_filled, last_clue._value, -fill_direction, mark)
+			_fill_n_cells(puzzle, last_filled, fill_amount, -fill_direction, mark)
 			if mark: last_clue.toggle_solved()
 
 func _try_mercury(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, first_clue: Clue, last_clue: Clue, fill_direction: Vector2i) -> void:
