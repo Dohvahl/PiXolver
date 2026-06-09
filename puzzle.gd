@@ -88,7 +88,7 @@ func get_last_filled(end_cell: Vector2i, fill_direction: Vector2i, count: int = 
 	return BitOps.LAST_SET(filled, offset - count + 1, count)
 
 ## Get the first marked cell, starting from start_cell, up to count
-## Returns -1 if none are set
+## Returns -1 if none are marked
 func get_first_marked(start_cell: Vector2i, fill_direction: Vector2i, count: int = grid_size - 1) -> int:
 	var marked = -1
 	if fill_direction == Vector2i.RIGHT: # row
@@ -101,7 +101,7 @@ func get_first_marked(start_cell: Vector2i, fill_direction: Vector2i, count: int
 	return marked
 
 ## Get the last marked cell, starting from end_cell, up to end_cell-count
-## Returns -1 if none are set
+## Returns -1 if none are marked
 func get_last_marked(end_cell: Vector2i, fill_direction: Vector2i, count: int = grid_size - 1) -> int:
 	var marked := -1
 	var offset := 0
