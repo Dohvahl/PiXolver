@@ -24,7 +24,7 @@ var solved_color = Color.CHARTREUSE
 var unsolved_color = Color.NAVY_BLUE
 
 const CELL_SIZE := 32						# pixels per cell
-var FONT_OFFSET := int(CELL_SIZE + ThemeDB.fallback_font_size) / 2
+var FONT_OFFSET := int(int(CELL_SIZE + ThemeDB.fallback_font_size) / 2)
 @export var unsolved_clue_color : Color
 @export var solved_clue_color : Color
 
