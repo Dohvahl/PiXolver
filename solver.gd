@@ -286,7 +286,6 @@ func _sb_calculate_intersections(size: int, clues: Array[Clue]) -> CellArray:
 		var clue_val = clues[i]._value
 		var left_mask = BitOps.FIELD_MASK(lstarts[i] + clue_val)
 		var right_mask = ~((1 << rstarts[i]) - 1)
-		var clue_intersect = left_mask & right_mask
 		intersect |= left_mask & right_mask
 
 	var result := CellArray.new(size)
