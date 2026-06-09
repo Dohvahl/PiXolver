@@ -33,11 +33,13 @@ func _ready() -> void:
 	var min_cor_fill_pct := INF
 	var max_cor_fill_pct := -INF
 	var avg_cor_fill_pct := 0.0
+	var max_cor_fill_puzzle := 0
 
 	# stats on correct cells. This includes correctly empty cells
 	var min_sol_pct := INF
 	var max_sol_pct := -INF
 	var avg_sol_pct := 0.0
+	var max_sol_puzzle := 0
 
 	# stats on incorrect cells
 	var min_diff := INF
@@ -46,7 +48,8 @@ func _ready() -> void:
 
 	var total_cells := 900
 	var start_time := Time.get_ticks_usec()
-	for puzzle in sample_puzzles:
+	for puzzle_index in range(0, sample_puzzles.size()):
+		var puzzle := sample_puzzles[puzzle_index]
 		if !puzzle:
 			continue
 
@@ -62,11 +65,15 @@ func _ready() -> void:
 			var incorrect = results.get("incorrect")
 
 			min_cor_fill_pct = min(pct_filled, min_cor_fill_pct)
-			max_cor_fill_pct = max(pct_filled, max_cor_fill_pct)
+			if pct_filled > max_cor_fill_pct:
+				max_cor_fill_pct = pct_filled
+				max_cor_fill_puzzle = puzzle_index + 1
 			avg_cor_fill_pct += pct_filled
 
 			min_sol_pct = min(pct_solved, min_sol_pct)
-			max_sol_pct = max(pct_solved, max_sol_pct)
+			if pct_solved > max_sol_pct:
+				max_sol_pct = pct_solved
+				max_sol_puzzle = puzzle_index
 			avg_sol_pct += pct_solved
 
 			if incorrect:
@@ -92,11 +99,11 @@ func _ready() -> void:
 	print("Average solve time: %0.2f microsecs" % (float(end_time - start_time) / total_run))
 
 	print("\nMin Correctly Filled Cells: %.2f%%" % (min_cor_fill_pct * 100))
-	print("Max Correctly Filled Cells: %.2f%%" % (max_cor_fill_pct * 100))
+	print("Max Correctly Filled Cells: %.2f%%, Puzzle#%d" % [(max_cor_fill_pct * 100), max_cor_fill_puzzle])
 	print("Average Correctly Filled Cells: %.2f%%" % (avg_cor_fill_pct * 100))
 
 	print("\nMin Correct Cells: %.2f%%" % (min_sol_pct * 100))
-	print("Max Correct Cells: %.2f%%" % (max_sol_pct * 100))
+	print("Max Correct Cells: %.2f%%, Puzzle#%d" % [(max_sol_pct * 100), max_sol_puzzle])
 	print("Average Correct Cells: %.2f%%" % (avg_sol_pct * 100))
 
 	print("\nMin Incorrect Cells: %d/%d" % [min_diff, total_cells])
