@@ -11,9 +11,10 @@
 - [x] change sol'n rep to match data set (just 1/0 in a grid)
 - [x] add representation for clues so we can track if individual clues have been solved
 - [x] change rendering of individual clue if solved
-- [ ] change fill/partial fill to use [Simple Boxes](https://en.wikipedia.org/wiki/Nonogram#Simple_boxes) check
-- [ ] detect and mark start/end cells that are just passed the closest clue
-- [ ] show percentage solved (full puzzle)
+- [x] change fill/partial fill to use [Simple Boxes](https://en.wikipedia.org/wiki/Nonogram#Simple_boxes) check
+- [x] detect and mark start/end cells that are just passed the closest clue
+- [x] show percentage solved (full puzzle)
+- [ ] check for "completed clue" while glueing
 
 # MAYBE
 - [ ] make `is_row_solved` more sophisticated
