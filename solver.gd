@@ -337,7 +337,8 @@ func _try_glueing(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, firs
 		var lowest_set := puzzle.get_first_filled(start_cell, fill_direction, first_clue._value)
 		if lowest_set > -1:
 			var first_filled = start_cell + (fill_direction * lowest_set)
-			var mark := lowest_set == 0
+			var zerod_start = start_cell * fill_direction
+			var mark := lowest_set == mini(zerod_start.x, zerod_start.y)
 			_fill_n_cells(puzzle, first_filled, first_clue._value - lowest_set, fill_direction, mark)
 			if mark: first_clue.toggle_solved()
 
@@ -348,7 +349,9 @@ func _try_glueing(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, firs
 		if highest_set > -1:
 			var last_filled = end_cell - (fill_direction * (puzzle.grid_size - (highest_set + 1)))
 			var fill_amount = last_clue._value - (puzzle.grid_size - highest_set) + 1
-			var mark := highest_set == puzzle.grid_size - 1
+			var zerod_end = end_cell * fill_direction
+			var end := maxi(zerod_end.x, zerod_end.y)
+			var mark := highest_set == end
 			_fill_n_cells(puzzle, last_filled, fill_amount, -fill_direction, mark)
 			if mark: last_clue.toggle_solved()
 
