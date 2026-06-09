@@ -99,6 +99,12 @@ func toggle_cell(x: int, y: int) -> bool:
 		columns[x].fill_cell(y)
 	return true
 
+func fill_line(index: int, fill_direction: Vector2i, value: int, offset: int = 0) -> void:
+	if fill_direction == Vector2i.RIGHT: # row
+		fill_row(index, value, offset)
+	elif fill_direction == Vector2i.DOWN: # column
+		fill_column(index, value, offset)
+
 func fill_row(index: int, value: int, offset: int = 0) -> void:
 	rows[index].fill(value, offset)
 
@@ -181,6 +187,13 @@ func is_solved() -> bool:
 			return false
 
 	return true
+
+func is_line_solved(index: int, fill_direction: Vector2i) -> bool:
+	if fill_direction == Vector2i.RIGHT: # row
+		return is_row_solved(index)
+	elif fill_direction == Vector2i.DOWN: # column
+		return is_column_solved(index)
+	return false
 
 func is_row_solved(i: int) -> bool:
 	return solution_rows[i].equals(rows[i])

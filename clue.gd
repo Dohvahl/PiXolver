@@ -7,6 +7,9 @@ func _init(in_index: int, in_start: int, in_value: int) -> void:
 func reset() -> void:
 	_solved = false
 
+func mark_solved() -> void:
+	_solved = true
+
 func toggle_solved() -> void:
 	_solved = !_solved
 

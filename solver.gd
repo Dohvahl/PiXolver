@@ -205,7 +205,13 @@ func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2
 		puzzle.mark_empty_cells(index, fill_direction)
 		return true
 
-	return _try_line_solve(puzzle, index, clues, iteration_direction, fill_direction)
+	var result := _try_line_solve(puzzle, index, clues, iteration_direction, fill_direction)
+	if result:
+		# ensure all row clues are marked solved
+		for clue in clues:
+			clue.mark_solved()
+
+	return result
 
 func _is_solved(puzzle: Puzzle, index: int, iter_direction: Vector2i) -> bool:
 	if iter_direction == Vector2i.DOWN:
@@ -223,10 +229,11 @@ func _try_line_solve(puzzle: Puzzle, index: int, clues: Array[Clue], iteration_d
 
 	# Simple Boxes
 	var line := _sb_calculate_intersections(puzzle.grid_size - start_offset - end_offset, clues)
-	if fill_direction == Vector2i.RIGHT: # row
-		puzzle.fill_row(index, line.filled_cells, start_offset)
-	if fill_direction == Vector2i.DOWN: # column
-		puzzle.fill_column(index, line.filled_cells, start_offset)
+	puzzle.fill_line(index, fill_direction, line.filled_cells, start_offset)
+	if puzzle.is_line_solved(index, fill_direction):
+		puzzle.mark_empty_cells(index, fill_direction)
+		tracker.mark_solved(iteration_direction, index)
+		return true
 
 	var start_cell := (iteration_direction * index) + (fill_direction * start_offset)
 	var end_cell := (iteration_direction * index) + (fill_direction * (puzzle.grid_size - end_offset - 1))
