@@ -309,7 +309,7 @@ func _sb_calculate_intersections(size: int, clues: Array[Clue]) -> CellArray:
 ## Check for filled squares that are on or near the edges of the line, but not farther away
 ## than the length the first/last clue.
 func _try_glueing(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, first_clue: Clue, last_clue: Clue, fill_direction: Vector2i) -> void:
-	# Check if the first/last cell is filled, but the first/last clue isn't yet completed.
+	# Check if the first/last clue isn't yet completed, and there are filled cells within reach.
 	# If so, we can fill in the clues
 	if !first_clue.is_solved():
 		# if any cells < first clue are filled,
@@ -333,7 +333,6 @@ func _try_glueing(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, firs
 			var mark := highest_set == puzzle.grid_size - 1
 			_fill_n_cells(puzzle, last_filled, last_clue._value, -fill_direction, mark)
 			if mark: last_clue.toggle_solved()
-
 
 func _try_mercury(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, first_clue: Clue, last_clue: Clue, fill_direction: Vector2i) -> void:
 	# Check if there are filled cells 1 away from the first/last clues amount
