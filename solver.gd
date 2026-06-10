@@ -70,7 +70,7 @@ class Result_Stats:
 			count += 1
 		return count
 
-@export var max_iterations := 5
+@export var max_iterations := 10
 var tracker : Solver_Data
 
 # Called when the node enters the scene tree for the first time.
