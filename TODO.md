@@ -14,7 +14,10 @@
 - [x] change fill/partial fill to use [Simple Boxes](https://en.wikipedia.org/wiki/Nonogram#Simple_boxes) check
 - [x] detect and mark start/end cells that are just passed the closest clue
 - [x] show percentage solved (full puzzle)
-- [ ] check for "completed clue" while glueing
+- [x] check for "completed clue" while glueing
+
+# CLEANUP
+- [ ] refactor `get_array_bounds` to share code
 
 # MAYBE
 - [ ] make `is_row_solved` more sophisticated
@@ -22,3 +25,4 @@
 # OPTIMIZE
 - [ ] solver.partial_fill may be able to be simplified
 - [ ] stack of "lines to solve" instead of just looping through all
+- [ ] refactor `get_array_bounds` to use single loop
