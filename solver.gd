@@ -346,14 +346,18 @@ func _try_glueing(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, firs
 	if !last_clue.is_solved():
 		# if any cells >= length - last clue,
 		# then we can fill from that filled cell up to the clue
-		var highest_set := puzzle.get_last_filled(end_cell, fill_direction, last_clue._value)
-		if highest_set > -1:
-			var last_filled = end_cell - (fill_direction * (puzzle.grid_size - (highest_set + 1)))
-			var fill_amount = last_clue._value - (puzzle.grid_size - highest_set) + 1
-			var zerod_end = end_cell * fill_direction
-			var end := maxi(zerod_end.x, zerod_end.y)
-			var mark := highest_set == end
-			_fill_n_cells(puzzle, last_filled, fill_amount, -fill_direction, mark)
+		var highest_set_index := puzzle.get_last_filled(end_cell, fill_direction, last_clue._value)
+		if highest_set_index > -1:
+			# the cell that is the highest set
+			var highest_set_cell := (start_cell * Vector2i(fill_direction.y, fill_direction.x )) + (highest_set_index * fill_direction)
+			# get the cell that would be the end of the clue
+			var clue_end = end_cell - (fill_direction * last_clue._value) + fill_direction
+			# the number of cells we need to fill
+			var diff = highest_set_cell - clue_end + fill_direction
+			var fill_amount = maxi(diff.x, diff.y)
+
+			var mark := highest_set_cell == end_cell
+			_fill_n_cells(puzzle, highest_set_cell, fill_amount, -fill_direction, mark)
 			if mark: last_clue.toggle_solved()
 
 func _try_mercury(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, first_clue: Clue, last_clue: Clue, fill_direction: Vector2i) -> void:
