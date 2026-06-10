@@ -8,10 +8,11 @@ static func FIELD_MASK(n: int, o: int = 0) -> int:
 ## Number of set bits ("population count"). The standard SWAR/parallel trick:
 ## add bits in pairs, then nibbles, then bytes, then sum the bytes.
 static func POPCOUNT(x: int) -> int:
-	var result := x - ((x >> 1) & 0x55555555)
-	result = (result & 0x33333333) + ((result >> 2) & 0x33333333)
-	result = (result + (result >> 4)) & 0x0F0F0F0F
-	return (result * 0x01010101) >> 24
+	var count := 0
+	while x != 0:
+		x &= x - 1
+		count += 1
+	return count
 
 ## Count trailing zeros = index of the lowest set bit. Returns -1 if x == 0.
 ## (x & -x) isolates the lowest set bit; subtracting 1 turns it into a run of
