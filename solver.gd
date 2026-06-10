@@ -198,7 +198,7 @@ func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2
 
 	# the current row/column may have been solved by previous iterations,
 	# so we should check it before we try to do any work to it
-	if _is_solved(puzzle, index, iteration_direction):
+	if _is_line_solved(puzzle, index, iteration_direction):
 		tracker.mark_solved(iteration_direction, index)
 
 		# ensure the empty cells are marked
@@ -213,7 +213,7 @@ func _try(puzzle: Puzzle, index: int, clues: Array, iteration_direction: Vector2
 
 	return result
 
-func _is_solved(puzzle: Puzzle, index: int, iter_direction: Vector2i) -> bool:
+func _is_line_solved(puzzle: Puzzle, index: int, iter_direction: Vector2i) -> bool:
 	if iter_direction == Vector2i.DOWN:
 		return puzzle.is_row_solved(index)
 	elif iter_direction == Vector2i.RIGHT:
@@ -223,7 +223,7 @@ func _is_solved(puzzle: Puzzle, index: int, iter_direction: Vector2i) -> bool:
 
 ## Returns true if the row/column is solved by this
 func _try_line_solve(puzzle: Puzzle, index: int, clues: Array[Clue], iteration_direction: Vector2i, fill_direction: Vector2i) -> bool:
-	var bounds := _get_array_bounds(puzzle, index, iteration_direction, fill_direction)
+	var bounds := _get_array_bounds(puzzle, index, iteration_direction, fill_direction, clues)
 	var start_offset := bounds[0]
 	var end_offset := bounds[1]
 
@@ -245,10 +245,15 @@ func _try_line_solve(puzzle: Puzzle, index: int, clues: Array[Clue], iteration_d
 	_try_mercury(puzzle, start_cell, end_cell, first_clue, last_clue, fill_direction)
 	_try_forcing_spaces(puzzle, start_cell, end_cell, first_clue, last_clue, fill_direction)
 
-	return _is_solved(puzzle, index, iteration_direction)
+	# Let's make sure we didn't miss solving any clues
+	_check_clues(puzzle, start_cell, end_cell, fill_direction, clues)
+
+	return _is_line_solved(puzzle, index, iteration_direction)
 
 ## Find the "virtual" start and end of the row/column, taking marked cells into account
-func _get_array_bounds(puzzle: Puzzle, index: int, iteration_direction: Vector2i, fill_direction: Vector2i) -> Array[int]:
+func _get_array_bounds(puzzle: Puzzle, index: int, iteration_direction: Vector2i, fill_direction: Vector2i, clues: Array[Clue]) -> Array[int]:
+	var clue_index := 0
+
 	# previous iterations may have marked cells at the start or end, these can be skipped
 	var start_offset := 0
 	var starting_cell := iteration_direction * index
@@ -256,10 +261,17 @@ func _get_array_bounds(puzzle: Puzzle, index: int, iteration_direction: Vector2i
 		start_offset += 1
 		starting_cell += fill_direction
 
+	clue_index = clues.size() - 1
 	var end_offset := 0
 	var end_cell := (iteration_direction * index) + (fill_direction * (puzzle.grid_size - 1))
-	while puzzle.is_cell_marked(end_cell):
-		end_offset += 1
+	while puzzle.is_valid_cell_index(end_cell) and !puzzle.is_cell_empty(end_cell):
+		if puzzle.is_cell_marked(end_cell):
+			end_offset += 1
+		elif puzzle.is_cell_filled(end_cell) and clues[clue_index].is_solved():
+			var skip := clues[clue_index]._value
+			end_offset += skip + 1
+			end_cell -= (fill_direction * skip)
+			clue_index -= 1
 		end_cell -= fill_direction
 
 	return [start_offset, end_offset]
@@ -269,9 +281,21 @@ func _get_array_bounds(puzzle: Puzzle, index: int, iteration_direction: Vector2i
 ## Compare the two bitsets for overlapping bits. If the overlapping bits come from the same clue,
 ## then that bit can be filled in
 func _sb_calculate_intersections(size: int, clues: Array[Clue]) -> CellArray:
+	# Solved clues at the very start and very end should be ignored
 	var n := clues.size()
+
+	var shrink_start := true
+	var shrink_end := true
 	var lclue := 0
 	var rclue := n - 1
+	while lclue < clues.size() and rclue >= 0 and (shrink_start or shrink_end):
+		if shrink_start:
+			if clues[lclue].is_solved(): lclue += 1
+			else: shrink_start = false
+		if shrink_end:
+			if clues[rclue].is_solved(): rclue -= 1
+			else: shrink_end = false
+
 	var lpos := 0
 	var rpos := size
 	var lstarts : Array[int] = []
@@ -279,18 +303,20 @@ func _sb_calculate_intersections(size: int, clues: Array[Clue]) -> CellArray:
 	var rstarts : Array[int] = []
 	rstarts.resize(n)
 
-	while lclue < n and rclue >= 0:
-		lstarts[lclue] = lpos
-		lpos += clues[lclue]._value + 1
-		lclue += 1
+	var lstarts_index := lclue
+	var rstarts_index := rclue
+	while lstarts_index < n and rstarts_index >= 0:
+		lstarts[lstarts_index] = lpos
+		lpos += clues[lstarts_index]._value + 1
+		lstarts_index += 1
 
-		rpos -= clues[rclue]._value
-		rstarts[rclue] = rpos
+		rpos -= clues[rstarts_index]._value
+		rstarts[rstarts_index] = rpos
 		rpos -= 1
-		rclue -= 1
+		rstarts_index -= 1
 
 	var intersect := 0
-	for i in range(0, n):
+	for i in range(lclue, rclue + 1):
 		var clue_val = clues[i]._value
 		var left_mask = BitOps.FIELD_MASK(lstarts[i] + clue_val)
 		var right_mask = ~((1 << rstarts[i]) - 1)
@@ -299,32 +325,6 @@ func _sb_calculate_intersections(size: int, clues: Array[Clue]) -> CellArray:
 	var result := CellArray.new(size)
 	result.filled_cells = intersect
 	return result
-
-#region DEBUG Show Overlap Regions
-	#var left := CellArray.new(size)
-	#var right := CellArray.new(size)
-#
-	#var left_cell := 0
-	#var right_cell := size - 1
-	#var num = clues.size()
-	#for i in range(0, num):
-		#var left_clue = clues[i]
-		#var right_clue = clues[num - 1 - i]
-		#left.fill_n_cells(left_clue._value, left_cell)
-		#right.fill_n_cells(right_clue._value, right_cell - right_clue._value + 1)
-#
-		## keep checking
-		#left_cell += left_clue._value + 1
-		#right_cell -= right_clue._value + 1
-#
-	#if !get_tree().current_scene.intersect:
-		#if get_tree().current_scene.show_left:
-			#return left
-		#else:
-			#return right
-	#else:
-		#return result
-#endregion DEBUG Show Overlap Regions
 
 ## Glue
 ## Check for filled squares that are on or near the edges of the line, but not farther away
@@ -410,6 +410,11 @@ func _try_forcing_spaces(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2
 				var last_marked = end_cell - (fill_direction * (end - highest_marked))
 				_mark_n_cells(puzzle, last_marked + fill_direction, num_spaces, fill_direction)
 
+func _check_clues(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, fill_direction: Vector2i, clues: Array[Clue]) -> void:
+	pass
+
+#region Puzzle Modifiers
+
 func _fill(puzzle: Puzzle, starting_location: Vector2i, clues: Array[Clue], fill_direction: Vector2i) -> void:
 	# fill in the row/column
 	var i := 0
@@ -456,4 +461,6 @@ func _mark_n_cells(puzzle: Puzzle, starting_cell: Vector2i, n: int, fill_dir: Ve
 	puzzle.mark_n_cells(starting_cell, n, fill_dir)
 	return Vector2i(starting_cell + (fill_dir * n))
 
-#endregion
+#endregion Puzzle Modifiers
+
+#endregion "Private" solver functions
