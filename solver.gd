@@ -335,29 +335,40 @@ func _try_glueing(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, firs
 	if !first_clue.is_solved():
 		# if any cells < first clue are filled,
 		# then we can fill from that filled cell up to the clue
-		var lowest_set := puzzle.get_first_filled(start_cell, fill_direction, first_clue._value)
-		if lowest_set > -1:
-			var first_filled = start_cell + (fill_direction * lowest_set)
+		var lowest_set_index := puzzle.get_first_filled(start_cell, fill_direction, first_clue._value)
+		if lowest_set_index > -1 and lowest_set_index < puzzle.grid_size:
+			var first_filled = start_cell + (fill_direction * lowest_set_index)
 			var zerod_start = start_cell * fill_direction
-			var mark := lowest_set == mini(zerod_start.x, zerod_start.y)
-			_fill_n_cells(puzzle, first_filled, first_clue._value - lowest_set, fill_direction, mark)
+			var mark := lowest_set_index == mini(zerod_start.x, zerod_start.y)
+			_fill_n_cells(puzzle, first_filled, first_clue._value - lowest_set_index, fill_direction, mark)
 			if mark: first_clue.toggle_solved()
 
 	if !last_clue.is_solved():
 		# if any cells >= length - last clue,
 		# then we can fill from that filled cell up to the clue
 		var highest_set_index := puzzle.get_last_filled(end_cell, fill_direction, last_clue._value)
-		if highest_set_index > -1:
+		if highest_set_index > -1 and highest_set_index < puzzle.grid_size:
 			# the cell that is the highest set
 			var highest_set_cell := (start_cell * Vector2i(fill_direction.y, fill_direction.x )) + (highest_set_index * fill_direction)
-			# get the cell that would be the end of the clue
-			var clue_end = end_cell - (fill_direction * last_clue._value) + fill_direction
-			# the number of cells we need to fill
-			var diff = highest_set_cell - clue_end + fill_direction
-			var fill_amount = maxi(diff.x, diff.y)
 
-			var mark := highest_set_cell == end_cell
-			_fill_n_cells(puzzle, highest_set_cell, fill_amount, -fill_direction, mark)
+			var fill_amount := 0
+			var starting_point := highest_set_cell
+			var mark := false
+			if puzzle.is_cell_marked(highest_set_cell - fill_direction):
+				# if the previous cell is marked, we're boxed in and should be able to fill
+				# up to the end
+				fill_amount = last_clue._value
+				starting_point = end_cell
+				mark = true
+			else:
+				# get the cell that would be the end of the clue
+				var clue_end = end_cell - (fill_direction * last_clue._value) + fill_direction
+				# the number of cells we need to fill
+				var diff = highest_set_cell - clue_end + fill_direction
+				fill_amount = maxi(diff.x, diff.y)
+				mark = highest_set_cell == end_cell
+
+			_fill_n_cells(puzzle, starting_point, fill_amount, -fill_direction, mark)
 			if mark: last_clue.toggle_solved()
 
 func _try_mercury(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, first_clue: Clue, last_clue: Clue, fill_direction: Vector2i) -> void:
@@ -382,13 +393,13 @@ func _try_forcing_spaces(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2
 	# then we can mark the in-between cells
 	if !first_clue.is_solved():
 		var lowest_marked = puzzle.get_first_marked(start_cell, fill_direction, first_clue._value)
-		if lowest_marked > -1:
+		if lowest_marked > -1 and lowest_marked < puzzle.grid_size:
 			if lowest_marked < first_clue._value:
 				_mark_n_cells(puzzle, start_cell, lowest_marked, fill_direction)
 
 	if !last_clue.is_solved():
 		var highest_marked = puzzle.get_last_marked(end_cell, fill_direction, last_clue._value)
-		if highest_marked > -1:
+		if highest_marked > -1 and highest_marked < puzzle.grid_size:
 			var zerod_end = end_cell * fill_direction
 			var end := maxi(zerod_end.x, zerod_end.y)
 			var num_spaces = end - highest_marked
