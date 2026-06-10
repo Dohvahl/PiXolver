@@ -136,17 +136,21 @@ func fill_row(index: int, value: int, offset: int = 0) -> void:
 	rows[index].fill(value, offset)
 
 	# update the rows to match the column
-	for i in range(0, grid_size):
+	var i := 0
+	while offset + i < grid_size:
 		if (value & (1 << i)):
 			columns[offset + i].fill_cell(index)
+		i += 1
 
 func fill_column(index: int, value: int, offset: int = 0) -> void:
 	columns[index].fill(value, offset)
 
 	# update the rows to match the column
-	for i in range(0, grid_size):
+	var i := 0
+	while offset + i < grid_size:
 		if (value & (1 << i)):
 			rows[offset + i].fill_cell(index)
+		i += 1
 
 func fill_n_cells(start: Vector2i, n: int, fill_dir: Vector2i) -> void:
 	if !is_valid_cell_index(start) or !is_valid_cell_index(start + (n * fill_dir)):
