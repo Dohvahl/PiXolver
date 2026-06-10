@@ -1,3 +1,5 @@
+class_name Clue
+
 func _init(in_index: int, in_start: int, in_value: int) -> void:
 	_index = in_index
 	_starting_cell = in_start
