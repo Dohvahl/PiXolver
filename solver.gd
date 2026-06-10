@@ -365,10 +365,16 @@ func _try_mercury(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, firs
 	# For example, if the first clue is 3, and there are 3 empty cells, then a filled cell,
 	# we can safely mark the first cell. Similar logic holds for the last cell.
 	if !first_clue.is_solved():
-		if puzzle.is_cell_filled(start_cell + (fill_direction * (first_clue._value + 1))) and puzzle.get_num_empty_cells(start_cell, fill_direction) == first_clue._value:
+		var empty_cells_count := puzzle.get_first_filled(start_cell, fill_direction, first_clue._value)
+		var lowest_set_index := puzzle.get_first_filled(start_cell, fill_direction, first_clue._value + 1)
+		if lowest_set_index == first_clue._value and empty_cells_count == -1:
 			puzzle.mark_cell(start_cell)
 	if !last_clue.is_solved():
-		if puzzle.is_cell_filled(end_cell + (-fill_direction * (last_clue._value))) and puzzle.get_num_empty_cells(end_cell, -fill_direction) == last_clue._value:
+		var zerod_cell := end_cell * fill_direction
+		var last_index := maxi(zerod_cell.x, zerod_cell.y)
+		var empty_cells_count := puzzle.get_last_filled(end_cell, fill_direction, last_clue._value)
+		var highest_set_index := puzzle.get_last_filled(end_cell, fill_direction, last_clue._value + 1)
+		if last_index - highest_set_index == last_clue._value and empty_cells_count == -1:
 			puzzle.mark_cell(end_cell)
 
 func _try_forcing_spaces(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, first_clue: Clue, last_clue: Clue, fill_direction: Vector2i) -> void:
