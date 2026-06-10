@@ -60,6 +60,19 @@ func is_cell_empty(loc: Vector2i) -> bool:
 		"Cell Index outside of grid bounds: [%d, %d]" % [loc.x, loc.y])
 	return !rows[loc.y].is_cell_marked(loc.x) && !rows[loc.y].is_cell_filled(loc.x)
 
+func are_n_cells_filled(start_loc: Vector2i, fill_direction: Vector2i, n: int) -> bool:
+	var zerod_cell := start_loc * fill_direction
+	var start_index := maxi(zerod_cell.x, zerod_cell.y)
+	var n_mask := BitOps.FIELD_MASK(n, start_index)
+	var cells := 0
+	if fill_direction == Vector2i.RIGHT: # row
+		cells = rows[start_loc.y].filled_cells
+	elif fill_direction == Vector2i.DOWN: # column
+		cells = columns[start_loc.x].filled_cells
+
+	var masked_off_bits = cells & n_mask
+	return masked_off_bits == n_mask
+
 ## Get the first filled cell, starting from start_cell, up to count
 ## Returns -1 if none are set
 func get_first_filled(start_cell: Vector2i, fill_direction: Vector2i, count: int = grid_size - 1) -> int:

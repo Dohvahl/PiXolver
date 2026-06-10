@@ -257,8 +257,24 @@ func _get_array_bounds(puzzle: Puzzle, index: int, iteration_direction: Vector2i
 	# previous iterations may have marked cells at the start or end, these can be skipped
 	var start_offset := 0
 	var starting_cell := iteration_direction * index
-	while puzzle.is_cell_marked(starting_cell):
-		start_offset += 1
+	while puzzle.is_valid_cell_index(starting_cell) and !puzzle.is_cell_empty(starting_cell):
+		if puzzle.is_cell_marked(starting_cell):
+			start_offset += 1
+		elif puzzle.is_cell_filled(starting_cell):
+			var clue_val := clues[clue_index]._value
+			if clues[clue_index].is_solved():
+				start_offset += clue_val + 1
+				starting_cell += (fill_direction * clue_val)
+				clue_index += 1
+				# if the filled cells satisfy the clue, we can punctuate the clue and move on
+			elif puzzle.are_n_cells_filled(starting_cell, fill_direction, clue_val):
+				clues[clue_index].mark_solved()
+				starting_cell += (fill_direction * clue_val)
+				# Punctuate the clue then move on
+				if puzzle.is_cell_empty(starting_cell): puzzle.mark_cell(starting_cell)
+				start_offset += clue_val + 1
+				clue_index += 1
+
 		starting_cell += fill_direction
 
 	clue_index = clues.size() - 1
@@ -267,11 +283,21 @@ func _get_array_bounds(puzzle: Puzzle, index: int, iteration_direction: Vector2i
 	while puzzle.is_valid_cell_index(end_cell) and !puzzle.is_cell_empty(end_cell):
 		if puzzle.is_cell_marked(end_cell):
 			end_offset += 1
-		elif puzzle.is_cell_filled(end_cell) and clues[clue_index].is_solved():
-			var skip := clues[clue_index]._value
-			end_offset += skip + 1
-			end_cell -= (fill_direction * skip)
-			clue_index -= 1
+		elif puzzle.is_cell_filled(end_cell):
+			var clue_val := clues[clue_index]._value
+			if clues[clue_index].is_solved():
+				end_offset += clue_val + 1
+				end_cell -= (fill_direction * clue_val)
+				clue_index -= 1
+				# if the filled cells satisfy the clue, we can punctuate the clue and move on
+			elif puzzle.are_n_cells_filled(end_cell - (fill_direction * (clue_val - 1)), fill_direction, clue_val):
+				clues[clue_index].mark_solved()
+				end_cell -= (fill_direction * clue_val)
+				# Punctuate the clue then move on
+				if puzzle.is_cell_empty(end_cell): puzzle.mark_cell(end_cell)
+				end_offset += clue_val + 1
+				clue_index -= 1
+
 		end_cell -= fill_direction
 
 	return [start_offset, end_offset]
