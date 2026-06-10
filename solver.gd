@@ -381,12 +381,15 @@ func _try_mercury(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, firs
 		if lowest_set_index == first_clue._value and empty_cells_count == -1:
 			puzzle.mark_cell(start_cell)
 	if !last_clue.is_solved():
+		# get the end index for this line
 		var zerod_cell := end_cell * fill_direction
 		var last_index := maxi(zerod_cell.x, zerod_cell.y)
-		var empty_cells_count := puzzle.get_last_filled(end_cell, fill_direction, last_clue._value)
-		var highest_set_index := puzzle.get_last_filled(end_cell, fill_direction, last_clue._value + 1)
-		if last_index - highest_set_index == last_clue._value and empty_cells_count == -1:
-			puzzle.mark_cell(end_cell)
+
+		# get the first filled cell end_cell-last_clue away
+		var lowest_filled_index := puzzle.get_first_filled(end_cell-(fill_direction*last_clue._value), fill_direction, last_clue._value + 1)
+		if lowest_filled_index > -1:
+			if lowest_filled_index == last_index - last_clue._value:
+				puzzle.mark_cell(end_cell)
 
 func _try_forcing_spaces(puzzle: Puzzle, start_cell: Vector2i, end_cell: Vector2i, first_clue: Clue, last_clue: Clue, fill_direction: Vector2i) -> void:
 	# if the space between the start/end cells and the next marked cell is too small for the first/last clue
