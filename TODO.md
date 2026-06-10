@@ -15,6 +15,8 @@
 - [x] detect and mark start/end cells that are just passed the closest clue
 - [x] show percentage solved (full puzzle)
 - [x] check for "completed clue" while glueing
+- [ ] maybe account for marked cells when using SB
+	- have to be careful about actual filling though
 
 # CLEANUP
 - [ ] refactor `get_array_bounds` to share code
