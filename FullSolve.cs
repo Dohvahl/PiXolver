@@ -44,7 +44,6 @@ public partial class FullSolve : Node
 		int totalRun = 0;
 		int totalSolved = 0;
 
-		GD.Print("Begin Solving");
 
 		// stats on correctly filled cells. This doesn't account for "over filled" states
 		double minCorFillPct = double.PositiveInfinity;
@@ -70,6 +69,8 @@ public partial class FullSolve : Node
 			Puzzle puzzle = samplePuzzles[puzzleIndex];
 			if (puzzle == null)
 				continue;
+
+			GD.Print($"Begin Solving Puzzle {puzzle.PuzzleFile}");
 
 			// set up the solver
 			var solver = new Solver();

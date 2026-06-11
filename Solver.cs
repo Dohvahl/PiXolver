@@ -192,8 +192,11 @@ public partial class Solver : RefCounted
 		}
 
 		// Checks related to the edges of the row/column
-		Clue firstClue = clues[0];
-		Clue lastClue = clues[clues.Count - 1];
+		(int lo, int hi) = _tracker.GetUnsolvedClueBounds(iterationDirection, index);
+		if (lo > hi)
+			lo = 0; hi = clues.Count - 1;
+        Clue firstClue = clues[Math.Max(lo, 0)];
+		Clue lastClue = clues[Math.Min(hi, clues.Count - 1)];
 		TryGlueing(puzzle, startCell, endCell, firstClue, lastClue, fillDirection);
 		TryMercury(puzzle, startCell, endCell, firstClue, lastClue, fillDirection);
 		TryForcingSpaces(puzzle, startCell, endCell, firstClue, lastClue, fillDirection);
@@ -222,7 +225,7 @@ public partial class Solver : RefCounted
 			{
 				startOffset += 1;
 			}
-			else if (puzzle.IsCellFilled(startingCell))
+			else if (lowClueIndex < clues.Count && puzzle.IsCellFilled(startingCell))
 			{
 				int clueVal = clues[lowClueIndex].Value;
 				if (clues[lowClueIndex].IsSolved())
@@ -256,7 +259,7 @@ public partial class Solver : RefCounted
 			{
 				endOffset += 1;
 			}
-			else if (puzzle.IsCellFilled(endCell))
+			else if (highClueIndex >= 0 && puzzle.IsCellFilled(endCell))
 			{
 				int clueVal = clues[highClueIndex].Value;
 				if (clues[highClueIndex].IsSolved())
@@ -389,7 +392,7 @@ public partial class Solver : RefCounted
 				int fillAmount = 0;
 				Vector2I startingPoint;
 				bool mark;
-				if (puzzle.IsCellMarked(firstFilled + fillDirection))
+				if (puzzle.IsValidCellIndex(firstFilled + fillDirection) && puzzle.IsCellMarked(firstFilled + fillDirection))
 				{
 					// if the next cell is marked, we're boxed in and should be able to fill
 					// from the start up to the marked cell
@@ -424,7 +427,7 @@ public partial class Solver : RefCounted
 				int fillAmount;
 				Vector2I startingPoint;
 				bool mark;
-				if (puzzle.IsCellMarked(highestSetCell - fillDirection))
+				if (puzzle.IsValidCellIndex(highestSetCell - fillDirection) && puzzle.IsCellMarked(highestSetCell - fillDirection))
 				{
 					// if the previous cell is marked, we're boxed in and should be able to fill
 					// up to the end
@@ -621,6 +624,24 @@ public partial class Solver : RefCounted
 			if (iterDirection == Vector2I.Right)
 				return LargestColumnClues[index];
 			return int.MinValue;
+		}
+
+		public (int, int) GetUnsolvedClueBounds(Vector2I iterDirection, int index)
+		{
+			if (iterDirection == Vector2I.Down)
+				return UnsolvedRowClues[index];
+			if (iterDirection == Vector2I.Right)
+				return UnsolvedColumnClues[index];
+			return (int.MinValue, int.MaxValue);
+		}
+
+		public int GetHighestUnsolvedClue(Vector2I iterDirection, int index)
+		{
+			if (iterDirection == Vector2I.Down)
+				return UnsolvedRowClues[index].Item2;
+			if (iterDirection == Vector2I.Right)
+				return UnsolvedColumnClues[index].Item2;
+			return int.MaxValue;
 		}
 
 		public bool IsSolved(Vector2I iterDirection, int index)
