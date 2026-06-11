@@ -180,8 +180,8 @@ public partial class Solver : Node
 		Vector2I endCell = (iterationDirection * index) + (fillDirection * (gridSize - endOffset - 1));
 
 		// Simple Boxes
-		long markedCells = puzzle.GetMarkedCells(index, fillDirection, startOffset, lineSize);
-		long line = CalculateIntersections(lineSize, clues, markedCells);
+		uint markedCells = puzzle.GetMarkedCells(index, fillDirection, startOffset, lineSize);
+		uint line = CalculateIntersections(lineSize, clues, markedCells);
 		puzzle.FillLine(index, fillDirection, line, startOffset);
 		if (puzzle.IsLineSolved(index, fillDirection))
 		{
@@ -288,7 +288,7 @@ public partial class Solver : Node
 	/// Compare the two bitsets for overlapping bits. If the overlapping bits come from the same clue,
 	/// then that bit can be filled in.
 	/// </summary>
-	private static long CalculateIntersections(int size, Godot.Collections.Array<Clue> clues, long markedCells)
+	private static uint CalculateIntersections(int size, Godot.Collections.Array<Clue> clues, uint markedCells)
 	{
 		// Solved clues at the very start and very end should be ignored
 		int n = clues.Count;
@@ -325,7 +325,7 @@ public partial class Solver : Node
 		int rstartsIndex = rclue;
 		while (lstartsIndex < n || rstartsIndex >= 0)
 		{
-			if (((1L << lpos) & markedCells) == (1L << lpos))
+			if (((1u << lpos) & markedCells) == (1u << lpos))
 			{
 				lpos += 1;
 			}
@@ -336,7 +336,7 @@ public partial class Solver : Node
 				lstartsIndex += 1;
 			}
 
-			if (((1L << (rpos - 1)) & markedCells) == (1L << (rpos - 1)))
+			if (((1u << (rpos - 1)) & markedCells) == (1u << (rpos - 1)))
 			{
 				rpos -= 1;
 			}
@@ -349,12 +349,12 @@ public partial class Solver : Node
 			}
 		}
 
-		long intersect = 0;
+		uint intersect = 0;
 		for (int i = lclue; i <= rclue; i++)
 		{
 			int clueVal = clues[i].Value;
-			long leftMask = BitOps.FieldMask(lstarts[i] + clueVal);
-			long rightMask = ~((1L << rstarts[i]) - 1);
+			uint leftMask = BitOps.FieldMask(lstarts[i] + clueVal);
+			uint rightMask = ~((1u << rstarts[i]) - 1u);
 			intersect |= leftMask & rightMask;
 		}
 
@@ -587,9 +587,9 @@ public partial class Solver : Node
 		public int Diff { get; private set; }
 		public int SolutionBits { get; private set; }
 
-		public void Calculate(long current, long solution, int width)
+		public void Calculate(uint current, uint solution, int width)
 		{
-			long full = (1L << width) - 1;
+			uint full = (1u << width) - 1;
 
 			Full = (int)full;
 			Correct = BitOps.PopCount(current & solution);

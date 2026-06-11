@@ -96,8 +96,8 @@ public partial class Puzzle : RefCounted
 	{
 		Vector2I zerodCell = startLoc * fillDirection;
 		int startIndex = Mathf.Max(zerodCell.X, zerodCell.Y);
-		long nMask = BitOps.FieldMask(n, startIndex);
-		long cells = 0;
+		uint nMask = BitOps.FieldMask(n, startIndex);
+		uint cells = 0;
 		if (fillDirection == Vector2I.Right) // row
 			cells = RowFilled(startLoc.Y);
 		else if (fillDirection == Vector2I.Down) // column
@@ -106,12 +106,12 @@ public partial class Puzzle : RefCounted
 		return (cells & nMask) == nMask;
 	}
 
-	public long GetMarkedCells(int index, Vector2I fillDirection, int offset = 0, int window = -1)
+	public uint GetMarkedCells(int index, Vector2I fillDirection, int offset = 0, int window = -1)
 	{
 		if (window < 0)
 			window = GridSize - 1;
 
-		long cells = 0;
+		uint cells = 0;
 		if (fillDirection == Vector2I.Right) // row
 			cells = RowMarked(index);
 		else if (fillDirection == Vector2I.Down) // column
@@ -140,7 +140,7 @@ public partial class Puzzle : RefCounted
 		if (count < 0)
 			count = GridSize - 1;
 
-		long filled = -1;
+		uint filled = 0;
 		int offset = 0;
 		if (fillDirection == Vector2I.Right) // row
 		{
@@ -176,7 +176,7 @@ public partial class Puzzle : RefCounted
 		if (count < 0)
 			count = GridSize - 1;
 
-		long marked = -1;
+		uint marked = 0;
 		int offset = 0;
 		if (fillDirection == Vector2I.Right) // row
 		{
@@ -204,7 +204,7 @@ public partial class Puzzle : RefCounted
 		return true;
 	}
 
-	public void FillLine(int index, Vector2I fillDirection, long value, int offset = 0)
+	public void FillLine(int index, Vector2I fillDirection, uint value, int offset = 0)
 	{
 		if (fillDirection == Vector2I.Right) // row
 			FillRow(index, value, offset);
@@ -212,23 +212,23 @@ public partial class Puzzle : RefCounted
 			FillColumn(index, value, offset);
 	}
 
-	public void FillRow(int index, long value, int offset = 0)
+	public void FillRow(int index, uint value, int offset = 0)
 	{
 		int i = 0;
 		while (offset + i < GridSize)
 		{
-			if ((value & (1L << i)) != 0)
+			if ((value & (1u << i)) != 0)
 				SetFilled(offset + i, index);
 			i += 1;
 		}
 	}
 
-	public void FillColumn(int index, long value, int offset = 0)
+	public void FillColumn(int index, uint value, int offset = 0)
 	{
 		int i = 0;
 		while (offset + i < GridSize)
 		{
-			if ((value & (1L << i)) != 0)
+			if ((value & (1u << i)) != 0)
 				SetFilled(index, offset + i);
 			i += 1;
 		}
@@ -358,8 +358,8 @@ public partial class Puzzle : RefCounted
 	}
 
 	// Accessors for the solver (same assembly), so it doesn't reach into the grid directly.
-	internal long RowFilledBits(int row) => RowFilled(row);
-	internal long SolutionRowFilledBits(int row) => SolutionRowFilled(row);
+	internal uint RowFilledBits(int row) => RowFilled(row);
+	internal uint SolutionRowFilledBits(int row) => SolutionRowFilled(row);
 	internal int RowMaxClueValue(int row) => _rowClues[row].MaxClueValue;
 	internal int ColumnMaxClueValue(int col) => _columnClues[col].MaxClueValue;
 
@@ -367,68 +367,68 @@ public partial class Puzzle : RefCounted
 
 	// --- Per-line bitmasks derived from the 2D grid ---
 
-	private long RowFilled(int row)
+	private uint RowFilled(int row)
 	{
-		long bits = 0;
+		uint bits = 0;
 		for (int x = 0; x < GridSize; x++)
 		{
 			if ((_grid[x, row] & CellState.Filled) != 0)
-				bits |= 1L << x;
+				bits |= 1u << x;
 		}
 		return bits;
 	}
 
-	private long ColumnFilled(int col)
+	private uint ColumnFilled(int col)
 	{
-		long bits = 0;
+		uint bits = 0;
 		for (int y = 0; y < GridSize; y++)
 		{
 			if ((_grid[col, y] & CellState.Filled) != 0)
-				bits |= 1L << y;
+				bits |= 1u << y;
 		}
 		return bits;
 	}
 
-	private long RowMarked(int row)
+	private uint RowMarked(int row)
 	{
-		long bits = 0;
+		uint bits = 0;
 		for (int x = 0; x < GridSize; x++)
 		{
 			if ((_grid[x, row] & CellState.Marked) != 0)
-				bits |= 1L << x;
+				bits |= 1u << x;
 		}
 		return bits;
 	}
 
-	private long ColumnMarked(int col)
+	private uint ColumnMarked(int col)
 	{
-		long bits = 0;
+		uint bits = 0;
 		for (int y = 0; y < GridSize; y++)
 		{
 			if ((_grid[col, y] & CellState.Marked) != 0)
-				bits |= 1L << y;
+				bits |= 1u << y;
 		}
 		return bits;
 	}
 
-	private long SolutionRowFilled(int row)
+	private uint SolutionRowFilled(int row)
 	{
-		long bits = 0;
+		uint bits = 0;
 		for (int x = 0; x < GridSize; x++)
 		{
 			if (_solution[x, row])
-				bits |= 1L << x;
+				bits |= 1u << x;
 		}
 		return bits;
 	}
 
-	private long SolutionColumnFilled(int col)
+	private uint SolutionColumnFilled(int col)
 	{
-		long bits = 0;
+		uint bits = 0;
 		for (int y = 0; y < GridSize; y++)
 		{
 			if (_solution[col, y])
-				bits |= 1L << y;
+				bits |= 1u << y;
 		}
 		return bits;
 	}
