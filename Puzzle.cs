@@ -248,17 +248,22 @@ public partial class Puzzle : RefCounted
 		if (!IsValidCellIndex(loc))
 			return false;
 
-		_grid[loc.X, loc.Y] |= CellState.Marked;
+		_grid[loc.X, loc.Y] = CellState.Marked;
 		return true;
 	}
 
-	public void MarkNCells(Vector2I start, int n, Vector2I fillDir)
+	public void MarkNCells(Vector2I start, int n, Vector2I fillDir, Vector2I endCell)
 	{
-		if (!IsValidCellIndex(start) || !IsValidCellIndex(start + (n * fillDir)))
+		if (n < 1 || !IsValidCellIndex(start))
 			return;
 
-		for (int i = 0; i < n; i++)
-			MarkCell(start + (i * fillDir));
+		Vector2I cell = start;
+        Vector2I end = endCell.Min(start + (n * fillDir));
+        for (int i = 0; cell <= end; i++)
+		{
+			MarkCell(cell);
+			cell += i * fillDir;
+		}		
 	}
 
 	public bool UnmarkCell(int x, int y)
@@ -438,12 +443,12 @@ public partial class Puzzle : RefCounted
 	private void SetFilled(int x, int y)
 	{
 		// filling a cell clears any mark (a filled cell is not "marked empty")
-		_grid[x, y] = (_grid[x, y] & ~CellState.Marked) | CellState.Filled;
+		_grid[x, y] = CellState.Filled;
 	}
 
 	private void EmptyCell(int x, int y)
 	{
-		_grid[x, y] &= ~CellState.Filled;
+		_grid[x, y] = 0;
 	}
 
 	private bool FillCell(Vector2I loc)

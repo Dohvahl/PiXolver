@@ -379,12 +379,31 @@ public partial class Solver : Node
 			int lowestSetIndex = puzzle.GetFirstFilled(startCell, fillDirection, firstClue.Value);
 			if (lowestSetIndex > -1 && lowestSetIndex < gridSize)
 			{
-				Vector2I firstFilled = startCell + (fillDirection * lowestSetIndex);
-				Vector2I zerodStart = startCell * fillDirection;
-				bool mark = lowestSetIndex == Math.Min(zerodStart.X, zerodStart.Y);
-				FillNCells(puzzle, firstFilled, firstClue.Value - lowestSetIndex, fillDirection, mark);
+		        // the cell that is the lowest set
+		        Vector2I firstFilled = startCell + (fillDirection * lowestSetIndex);
+		
+				int fillAmount = 0;
+				Vector2I startingPoint;
+				bool mark;
+				if (puzzle.IsCellMarked(firstFilled + fillDirection))
+				{
+					// if the next cell is marked, we're boxed in and should be able to fill
+					// from the start up to the marked cell
+					fillAmount = firstClue.Value;
+					startingPoint = startCell;
+					mark = true;
+				}
+				else
+				{
+					Vector2I zerodStart = startCell * fillDirection;
+					fillAmount = firstClue.Value - lowestSetIndex;
+					startingPoint = firstFilled;
+		                  mark = lowestSetIndex == Math.Min(zerodStart.X, zerodStart.Y);
+				}
+				FillNCells(puzzle, startingPoint, fillAmount, fillDirection, mark);
 				if (mark)
 					firstClue.ToggleSolved();
+		
 			}
 		}
 
@@ -434,10 +453,16 @@ public partial class Solver : Node
 		// we can safely mark the first cell. Similar logic holds for the last cell.
 		if (!firstClue.IsSolved())
 		{
-			int emptyCellsCount = puzzle.GetFirstFilled(startCell, fillDirection, firstClue.Value);
-			int lowestSetIndex = puzzle.GetFirstFilled(startCell, fillDirection, firstClue.Value + 1);
-			if (lowestSetIndex == firstClue.Value && emptyCellsCount == -1)
-				puzzle.MarkCell(startCell);
+			// get the start index for the line
+			Vector2I zerodCell = startCell * fillDirection;
+			int firstIndex = Math.Max(zerodCell.X, zerodCell.Y);
+
+			int highestFilledIndex = puzzle.GetFirstFilled(startCell, fillDirection, firstClue.Value + 1);
+			if (highestFilledIndex > -1)
+			{
+				if (highestFilledIndex == firstClue.Value + firstIndex)
+					puzzle.MarkCell(startCell);
+			}		
 		}
 		if (!lastClue.IsSolved())
 		{
@@ -466,8 +491,11 @@ public partial class Solver : Node
 			int lowestMarked = puzzle.GetFirstMarked(startCell, fillDirection, firstClue.Value);
 			if (lowestMarked > -1 && lowestMarked < gridSize)
 			{
-				if (lowestMarked < firstClue.Value)
-					MarkNCells(puzzle, startCell, lowestMarked, fillDirection);
+				Vector2I zerodStart = startCell * fillDirection;
+				int start = Math.Max(zerodStart.X, zerodStart.Y);
+				int numSpaces = lowestMarked - start;
+				if (numSpaces > 0 && numSpaces < firstClue.Value)
+					MarkNCells(puzzle, startCell, lowestMarked, fillDirection, endCell);
 			}
 		}
 
@@ -479,10 +507,10 @@ public partial class Solver : Node
 				Vector2I zerodEnd = endCell * fillDirection;
 				int end = Math.Max(zerodEnd.X, zerodEnd.Y);
 				int numSpaces = end - highestMarked;
-				if (numSpaces < lastClue.Value)
+				if (numSpaces > 0 && numSpaces < lastClue.Value)
 				{
 					Vector2I lastMarked = endCell - (fillDirection * (end - highestMarked));
-					MarkNCells(puzzle, lastMarked + fillDirection, numSpaces, fillDirection);
+					MarkNCells(puzzle, lastMarked + fillDirection, numSpaces, fillDirection, endCell);
 				}
 			}
 		}
@@ -513,9 +541,9 @@ public partial class Solver : Node
 	/// Returns the next cell after the fill. This might be outside the bounds of the grid if this
 	/// fills to the end of the row/column.
 	/// </summary>
-	private static Vector2I MarkNCells(Puzzle puzzle, Vector2I startingCell, int n, Vector2I fillDir)
+	private static Vector2I MarkNCells(Puzzle puzzle, Vector2I startingCell, int n, Vector2I fillDir, Vector2I endCell)
 	{
-		puzzle.MarkNCells(startingCell, n, fillDir);
+		puzzle.MarkNCells(startingCell, n, fillDir, endCell);
 		return startingCell + (fillDir * n);
 	}
 
