@@ -1,21 +1,37 @@
 using Godot;
+using System;
 
 /// <summary>
 /// Data representation of a nonogram puzzle: the playing field, the solution, and the derived clues.
 /// Exposed to GDScript (the grid UI) as a global class. Construct with <c>new()</c> then call
 /// <see cref="Initialize"/> — Godot objects cannot take constructor arguments from GDScript.
 /// </summary>
+/// <remarks>
+/// The playing field is a single 2D grid (<see cref="_grid"/>) — the one source of truth. Per-line
+/// filled/marked bitmasks are derived from it on demand for the solver's bit-twiddling techniques.
+/// </remarks>
 [GlobalClass]
 public partial class Puzzle : RefCounted
 {
+	[Flags]
+	private enum CellState : byte
+	{
+		Empty = 0,
+		Filled = 1,
+		Marked = 2,
+	}
+
 	public string PuzzleFile { get; private set; }
 
 	public int GridSize { get; private set; }
 
-	internal CellArray[] Rows;
-	internal CellArray[] Columns;
-	internal SolutionCellArray[] SolutionRows;
-	internal SolutionCellArray[] SolutionColumns;
+	// Single source of truth: the playing field and the (immutable) solution.
+	private CellState[,] _grid;   // _grid[x, y]
+	private bool[,] _solution;    // _solution[x, y] — filled cells of the answer
+
+	// Derived clue metadata for the top/left of the puzzle.
+	private ClueLine[] _rowClues;
+	private ClueLine[] _columnClues;
 
 	public int MaxRowClues { get; private set; }
 	public int MaxColumnClues { get; private set; }
@@ -29,22 +45,15 @@ public partial class Puzzle : RefCounted
 		PuzzleFile = puzzleFile;
 		GridSize = gridSize;
 
-		// initialize the puzzle that we'll use in normal play
-		Rows = new CellArray[gridSize];
-		Columns = new CellArray[gridSize];
-		for (int i = 0; i < gridSize; i++)
-		{
-			Rows[i] = new CellArray(gridSize);
-			Columns[i] = new CellArray(gridSize);
-		}
+		_grid = new CellState[gridSize, gridSize];
+		_solution = new bool[gridSize, gridSize];
 
-		// initialize the "solved" version of the puzzle
-		SolutionRows = new SolutionCellArray[gridSize];
-		SolutionColumns = new SolutionCellArray[gridSize];
+		_rowClues = new ClueLine[gridSize];
+		_columnClues = new ClueLine[gridSize];
 		for (int i = 0; i < gridSize; i++)
 		{
-			SolutionRows[i] = new SolutionCellArray(gridSize);
-			SolutionColumns[i] = new SolutionCellArray(gridSize);
+			_rowClues[i] = new ClueLine();
+			_columnClues[i] = new ClueLine();
 		}
 
 		// set the "solved" state of the puzzle
@@ -56,32 +65,31 @@ public partial class Puzzle : RefCounted
 
 	public void Reset()
 	{
+		// clear the playing field; the solution is left intact
+		Array.Clear(_grid, 0, _grid.Length);
 		for (int i = 0; i < GridSize; i++)
 		{
-			Rows[i].Reset();
-			Columns[i].Reset();
-
-			SolutionRows[i].Reset();
-			SolutionColumns[i].Reset();
+			_rowClues[i].Reset();
+			_columnClues[i].Reset();
 		}
 	}
 
 	public bool IsCellFilled(Vector2I loc)
 	{
 		System.Diagnostics.Debug.Assert(IsValidCellIndex(loc), $"Cell Index outside of grid bounds: [{loc.X}, {loc.Y}]");
-		return Rows[loc.Y].IsCellFilled(loc.X);
+		return (_grid[loc.X, loc.Y] & CellState.Filled) != 0;
 	}
 
 	public bool IsCellMarked(Vector2I loc)
 	{
 		System.Diagnostics.Debug.Assert(IsValidCellIndex(loc), $"Cell Index outside of grid bounds: [{loc.X}, {loc.Y}]");
-		return Rows[loc.Y].IsCellMarked(loc.X);
+		return (_grid[loc.X, loc.Y] & CellState.Marked) != 0;
 	}
 
 	public bool IsCellEmpty(Vector2I loc)
 	{
 		System.Diagnostics.Debug.Assert(IsValidCellIndex(loc), $"Cell Index outside of grid bounds: [{loc.X}, {loc.Y}]");
-		return !Rows[loc.Y].IsCellMarked(loc.X) && !Rows[loc.Y].IsCellFilled(loc.X);
+		return _grid[loc.X, loc.Y] == CellState.Empty;
 	}
 
 	public bool AreNCellsFilled(Vector2I startLoc, Vector2I fillDirection, int n)
@@ -91,9 +99,9 @@ public partial class Puzzle : RefCounted
 		long nMask = BitOps.FieldMask(n, startIndex);
 		long cells = 0;
 		if (fillDirection == Vector2I.Right) // row
-			cells = Rows[startLoc.Y].FilledCells;
+			cells = RowFilled(startLoc.Y);
 		else if (fillDirection == Vector2I.Down) // column
-			cells = Columns[startLoc.X].FilledCells;
+			cells = ColumnFilled(startLoc.X);
 
 		return (cells & nMask) == nMask;
 	}
@@ -105,9 +113,9 @@ public partial class Puzzle : RefCounted
 
 		long cells = 0;
 		if (fillDirection == Vector2I.Right) // row
-			cells = Rows[index].MarkedCells;
+			cells = RowMarked(index);
 		else if (fillDirection == Vector2I.Down) // column
-			cells = Columns[index].MarkedCells;
+			cells = ColumnMarked(index);
 
 		return BitOps.FieldMask(window, offset) & (cells >> offset);
 	}
@@ -119,9 +127,9 @@ public partial class Puzzle : RefCounted
 			count = GridSize - 1;
 
 		if (fillDirection == Vector2I.Right) // row
-			return BitOps.FirstSet(Rows[startCell.Y].FilledCells, startCell.X, count);
+			return BitOps.FirstSet(RowFilled(startCell.Y), startCell.X, count);
 		if (fillDirection == Vector2I.Down) // column
-			return BitOps.FirstSet(Columns[startCell.X].FilledCells, startCell.Y, count);
+			return BitOps.FirstSet(ColumnFilled(startCell.X), startCell.Y, count);
 
 		return -1;
 	}
@@ -136,12 +144,12 @@ public partial class Puzzle : RefCounted
 		int offset = 0;
 		if (fillDirection == Vector2I.Right) // row
 		{
-			filled = Rows[endCell.Y].FilledCells;
+			filled = RowFilled(endCell.Y);
 			offset = endCell.X;
 		}
 		else if (fillDirection == Vector2I.Down) // column
 		{
-			filled = Columns[endCell.X].FilledCells;
+			filled = ColumnFilled(endCell.X);
 			offset = endCell.Y;
 		}
 
@@ -155,9 +163,9 @@ public partial class Puzzle : RefCounted
 			count = GridSize - 1;
 
 		if (fillDirection == Vector2I.Right) // row
-			return BitOps.FirstSet(Rows[startCell.Y].MarkedCells, startCell.X, count);
+			return BitOps.FirstSet(RowMarked(startCell.Y), startCell.X, count);
 		if (fillDirection == Vector2I.Down) // column
-			return BitOps.FirstSet(Columns[startCell.X].MarkedCells, startCell.Y, count);
+			return BitOps.FirstSet(ColumnMarked(startCell.X), startCell.Y, count);
 
 		return -1;
 	}
@@ -172,12 +180,12 @@ public partial class Puzzle : RefCounted
 		int offset = 0;
 		if (fillDirection == Vector2I.Right) // row
 		{
-			marked = Rows[endCell.Y].MarkedCells;
+			marked = RowMarked(endCell.Y);
 			offset = endCell.X;
 		}
 		else if (fillDirection == Vector2I.Down) // column
 		{
-			marked = Columns[endCell.X].MarkedCells;
+			marked = ColumnMarked(endCell.X);
 			offset = endCell.Y;
 		}
 
@@ -189,16 +197,10 @@ public partial class Puzzle : RefCounted
 		if (!IsValidCellIndex(new Vector2I(x, y)))
 			return false;
 
-		if (Rows[y].IsCellFilled(x))
-		{
-			Rows[y].EmptyCell(x);
-			Columns[x].EmptyCell(y);
-		}
+		if ((_grid[x, y] & CellState.Filled) != 0)
+			EmptyCell(x, y);
 		else
-		{
-			Rows[y].FillCell(x);
-			Columns[x].FillCell(y);
-		}
+			SetFilled(x, y);
 		return true;
 	}
 
@@ -212,28 +214,22 @@ public partial class Puzzle : RefCounted
 
 	public void FillRow(int index, long value, int offset = 0)
 	{
-		Rows[index].Fill(value, offset);
-
-		// update the columns to match the row
 		int i = 0;
 		while (offset + i < GridSize)
 		{
 			if ((value & (1L << i)) != 0)
-				Columns[offset + i].FillCell(index);
+				SetFilled(offset + i, index);
 			i += 1;
 		}
 	}
 
 	public void FillColumn(int index, long value, int offset = 0)
 	{
-		Columns[index].Fill(value, offset);
-
-		// update the rows to match the column
 		int i = 0;
 		while (offset + i < GridSize)
 		{
 			if ((value & (1L << i)) != 0)
-				Rows[offset + i].FillCell(index);
+				SetFilled(index, offset + i);
 			i += 1;
 		}
 	}
@@ -243,7 +239,6 @@ public partial class Puzzle : RefCounted
 		if (!IsValidCellIndex(start) || !IsValidCellIndex(start + (n * fillDir)))
 			return;
 
-		// we also need to fill in the corresponding row/column
 		for (int i = 0; i < n; i++)
 			FillCell(start + (i * fillDir));
 	}
@@ -253,8 +248,7 @@ public partial class Puzzle : RefCounted
 		if (!IsValidCellIndex(loc))
 			return false;
 
-		Rows[loc.Y].MarkCell(loc.X);
-		Columns[loc.X].MarkCell(loc.Y);
+		_grid[loc.X, loc.Y] |= CellState.Marked;
 		return true;
 	}
 
@@ -263,7 +257,6 @@ public partial class Puzzle : RefCounted
 		if (!IsValidCellIndex(start) || !IsValidCellIndex(start + (n * fillDir)))
 			return;
 
-		// we also need to mark the corresponding row/column
 		for (int i = 0; i < n; i++)
 			MarkCell(start + (i * fillDir));
 	}
@@ -273,8 +266,7 @@ public partial class Puzzle : RefCounted
 		if (!IsValidCellIndex(new Vector2I(x, y)))
 			return false;
 
-		Rows[y].UnmarkCell(x);
-		Columns[x].UnmarkCell(y);
+		_grid[x, y] &= ~CellState.Marked;
 		return true;
 	}
 
@@ -294,20 +286,18 @@ public partial class Puzzle : RefCounted
 	{
 		if (fillDirection == Vector2I.Right) // row
 		{
-			Rows[index].MarkEmptyCells();
-			for (int i = 0; i < GridSize; i++)
+			for (int x = 0; x < GridSize; x++)
 			{
-				if (!Columns[i].IsCellFilled(index))
-					Columns[i].MarkCell(index);
+				if ((_grid[x, index] & CellState.Filled) == 0)
+					_grid[x, index] |= CellState.Marked;
 			}
-			Columns[index].MarkEmptyCells();
 		}
-		if (fillDirection == Vector2I.Down) // column
+		else if (fillDirection == Vector2I.Down) // column
 		{
-			for (int i = 0; i < GridSize; i++)
+			for (int y = 0; y < GridSize; y++)
 			{
-				if (!Rows[i].IsCellFilled(index))
-					Rows[i].MarkCell(index);
+				if ((_grid[index, y] & CellState.Filled) == 0)
+					_grid[index, y] |= CellState.Marked;
 			}
 		}
 	}
@@ -321,14 +311,14 @@ public partial class Puzzle : RefCounted
 	{
 		if (index < 0 || index > GridSize)
 			return new Godot.Collections.Array<Clue>();
-		return SolutionRows[index].Clues;
+		return _rowClues[index].Clues;
 	}
 
 	public Godot.Collections.Array<Clue> GetColClues(int index)
 	{
 		if (index < 0 || index > GridSize)
 			return new Godot.Collections.Array<Clue>();
-		return SolutionColumns[index].Clues;
+		return _columnClues[index].Clues;
 	}
 
 	public bool IsValidCellIndex(Vector2I cell)
@@ -358,15 +348,114 @@ public partial class Puzzle : RefCounted
 
 	public bool IsRowSolved(int i)
 	{
-		return SolutionRows[i].Matches(Rows[i]);
+		// the solution carries no marks, so a solved line is correctly filled and unmarked
+		return RowFilled(i) == SolutionRowFilled(i) && RowMarked(i) == 0;
 	}
 
 	public bool IsColumnSolved(int i)
 	{
-		return SolutionColumns[i].Matches(Columns[i]);
+		return ColumnFilled(i) == SolutionColumnFilled(i) && ColumnMarked(i) == 0;
 	}
 
+	// Accessors for the solver (same assembly), so it doesn't reach into the grid directly.
+	internal long RowFilledBits(int row) => RowFilled(row);
+	internal long SolutionRowFilledBits(int row) => SolutionRowFilled(row);
+	internal int RowMaxClueValue(int row) => _rowClues[row].MaxClueValue;
+	internal int ColumnMaxClueValue(int col) => _columnClues[col].MaxClueValue;
+
 	#region "Private" Functions
+
+	// --- Per-line bitmasks derived from the 2D grid ---
+
+	private long RowFilled(int row)
+	{
+		long bits = 0;
+		for (int x = 0; x < GridSize; x++)
+		{
+			if ((_grid[x, row] & CellState.Filled) != 0)
+				bits |= 1L << x;
+		}
+		return bits;
+	}
+
+	private long ColumnFilled(int col)
+	{
+		long bits = 0;
+		for (int y = 0; y < GridSize; y++)
+		{
+			if ((_grid[col, y] & CellState.Filled) != 0)
+				bits |= 1L << y;
+		}
+		return bits;
+	}
+
+	private long RowMarked(int row)
+	{
+		long bits = 0;
+		for (int x = 0; x < GridSize; x++)
+		{
+			if ((_grid[x, row] & CellState.Marked) != 0)
+				bits |= 1L << x;
+		}
+		return bits;
+	}
+
+	private long ColumnMarked(int col)
+	{
+		long bits = 0;
+		for (int y = 0; y < GridSize; y++)
+		{
+			if ((_grid[col, y] & CellState.Marked) != 0)
+				bits |= 1L << y;
+		}
+		return bits;
+	}
+
+	private long SolutionRowFilled(int row)
+	{
+		long bits = 0;
+		for (int x = 0; x < GridSize; x++)
+		{
+			if (_solution[x, row])
+				bits |= 1L << x;
+		}
+		return bits;
+	}
+
+	private long SolutionColumnFilled(int col)
+	{
+		long bits = 0;
+		for (int y = 0; y < GridSize; y++)
+		{
+			if (_solution[col, y])
+				bits |= 1L << y;
+		}
+		return bits;
+	}
+
+	// --- Single-cell writes (the one place cell state changes) ---
+
+	private void SetFilled(int x, int y)
+	{
+		// filling a cell clears any mark (a filled cell is not "marked empty")
+		_grid[x, y] = (_grid[x, y] & ~CellState.Marked) | CellState.Filled;
+	}
+
+	private void EmptyCell(int x, int y)
+	{
+		_grid[x, y] &= ~CellState.Filled;
+	}
+
+	private bool FillCell(Vector2I loc)
+	{
+		if (!IsValidCellIndex(loc))
+			return false;
+
+		SetFilled(loc.X, loc.Y);
+		return true;
+	}
+
+	// --- Solution / clue setup ---
 
 	private void InitializeSolution(string solvedState)
 	{
@@ -379,10 +468,7 @@ public partial class Puzzle : RefCounted
 			for (int index = 0; index < rowState.Length; index++)
 			{
 				if (rowState[index] == '1')
-				{
-					SolutionRows[row].FillCell(index);
-					SolutionColumns[index].FillCell(row);
-				}
+					_solution[index, row] = true;
 			}
 			row += 1;
 		}
@@ -399,7 +485,7 @@ public partial class Puzzle : RefCounted
 			int currentClue = 0;
 			while (i < GridSize)
 			{
-				if (SolutionRows[row].IsCellFilled(i))
+				if (_solution[i, row])
 				{
 					currentClue += 1;
 				}
@@ -432,7 +518,7 @@ public partial class Puzzle : RefCounted
 			int currentClue = 0;
 			while (i < GridSize)
 			{
-				if (SolutionRows[i].IsCellFilled(col))
+				if (_solution[col, i])
 				{
 					currentClue += 1;
 				}
@@ -462,25 +548,33 @@ public partial class Puzzle : RefCounted
 	// returns the number of clues currently in the array
 	private int AddRowClue(int row, int startCol, int clue)
 	{
-		int currentNum = SolutionRows[row].Length;
-		return SolutionRows[row].RecordClue(currentNum, startCol, clue);
+		return _rowClues[row].RecordClue(GridSize, startCol, clue);
 	}
 
 	// returns the number of clues currently in the array
 	private int AddColClue(int col, int startRow, int clue)
 	{
-		int currentNum = SolutionColumns[col].Length;
-		return SolutionColumns[col].RecordClue(currentNum, startRow, clue);
+		return _columnClues[col].RecordClue(GridSize, startRow, clue);
 	}
 
-	private bool FillCell(Vector2I loc)
+	/// <summary>Clue metadata for a single row or column.</summary>
+	private sealed class ClueLine
 	{
-		if (!IsValidCellIndex(loc))
-			return false;
+		public Godot.Collections.Array<Clue> Clues { get; } = new();
+		public int MaxClueValue { get; private set; } = int.MinValue;
 
-		Rows[loc.Y].FillCell(loc.X);
-		Columns[loc.X].FillCell(loc.Y);
-		return true;
+		public int RecordClue(int index, int start, int value)
+		{
+			MaxClueValue = Mathf.Max(MaxClueValue, value);
+			Clues.Add(new Clue(index, start, value));
+			return Clues.Count;
+		}
+
+		public void Reset()
+		{
+			foreach (Clue clue in Clues)
+				clue.Reset();
+		}
 	}
 
 	#endregion

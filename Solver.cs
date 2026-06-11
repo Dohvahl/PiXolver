@@ -57,7 +57,7 @@ public partial class Solver : Node
 			for (int i = 0; i < gridSize; i++)
 			{
 				var stats = new ResultStats();
-				stats.Calculate(puzzle.Rows[i].FilledCells, puzzle.SolutionRows[i].FilledCells, gridSize);
+				stats.Calculate(puzzle.RowFilledBits(i), puzzle.SolutionRowFilledBits(i), gridSize);
 				correct += stats.Correct;
 				diff += stats.Diff;
 				solBits += stats.SolutionBits;
@@ -87,10 +87,10 @@ public partial class Solver : Node
 		for (int i = 0; i < gridSize; i++)
 		{
 			if (puzzle.GetRowClues(i).Count > 0)
-				_tracker.LargestRowClues[i] = puzzle.SolutionRows[i].MaxClueValue;
+				_tracker.LargestRowClues[i] = puzzle.RowMaxClueValue(i);
 
 			if (puzzle.GetColClues(i).Count > 0)
-				_tracker.LargestColumnClues[i] = puzzle.SolutionColumns[i].MaxClueValue;
+				_tracker.LargestColumnClues[i] = puzzle.ColumnMaxClueValue(i);
 		}
 
 		ulong preprocessEnd = Time.Singleton.GetTicksUsec();
