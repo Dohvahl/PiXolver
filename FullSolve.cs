@@ -1,5 +1,6 @@
 using Godot;
 using System.Globalization;
+using System.Linq.Expressions;
 
 /// <summary>
 /// Headless benchmark harness: loads the sample puzzles, runs the solver against each, prints
@@ -71,8 +72,8 @@ public partial class FullSolve : Node
 				continue;
 
 			// set up the solver
-			var solver = SolverScene.Instantiate<Solver>();
-			AddChild(solver);
+			var solver = new Solver();
+			solver.Init(puzzle.GridSize);
 
 			Godot.Collections.Dictionary results = solver.Run(puzzle, false);
 			if (results.ContainsKey("is_solved"))

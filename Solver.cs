@@ -5,17 +5,19 @@ using System;
 /// Nonogram solver. Technique names are taken from the Nonogram wiki:
 /// https://en.wikipedia.org/wiki/Nonogram
 /// </summary>
-public partial class Solver : Node
+[GlobalClass]
+public partial class Solver : RefCounted
 {
 	[Export]
 	public int MaxIterations { get; set; } = 10;
 
 	private SolverData _tracker;
 
-	public override void _Ready()
+	public void Init(int inGridSize)
 	{
 		_tracker = new SolverData();
-	}
+		_tracker?.Init(inGridSize);
+    }
 
 	public void Reset()
 	{
@@ -81,8 +83,6 @@ public partial class Solver : Node
 		ulong preprocessStart = Time.Singleton.GetTicksUsec();
 
 		int gridSize = puzzle.GridSize;
-		_tracker.ResizeLargestClues(gridSize);
-		_tracker.ResizeUnsolvedClues(gridSize);
 
 		// preprocess the puzzle to get some basic information
 		for (int i = 0; i < gridSize; i++)
@@ -558,8 +558,11 @@ public partial class Solver : Node
 	/// <summary>Tracks per-line solve state and the largest clue in each row/column.</summary>
 	private sealed class SolverData
 	{
-		// the largest clues in each row/col
-		public int[] LargestRowClues { get; private set; } = Array.Empty<int>();
+        // Size of the grid
+		private int gridSize;
+
+        // the largest clues in each row/col
+        public int[] LargestRowClues { get; private set; } = Array.Empty<int>();
 		public int[] LargestColumnClues { get; private set; } = Array.Empty<int>();
 
 		// "Sets" to track what we've already solved
@@ -570,6 +573,13 @@ public partial class Solver : Node
 		public (int, int)[] UnsolvedRowClues { get; private set; } = Array.Empty<(int, int)>();
 		public (int, int)[] UnsolvedColumnClues { get; private set; } = Array.Empty<(int, int)>();
 
+		public void Init(int size)
+		{
+			gridSize = size;
+			ResizeLargestClues(size);
+			ResizeUnsolvedClues(size);
+		}
+
 		public void Reset()
 		{
 			_solvedRows.Clear();
@@ -578,7 +588,10 @@ public partial class Solver : Node
 			LargestColumnClues = Array.Empty<int>();
 			UnsolvedRowClues = Array.Empty<(int, int)>();
 			UnsolvedColumnClues = Array.Empty<(int, int)>();
-		}
+
+			ResizeUnsolvedClues(gridSize);
+			ResizeLargestClues(gridSize);
+        }
 
 		public void ResizeLargestClues(int size)
 		{

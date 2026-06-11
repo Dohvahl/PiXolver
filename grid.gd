@@ -29,7 +29,7 @@ var FONT_OFFSET := int(int(CELL_SIZE + ThemeDB.fallback_font_size) / 2)
 @export var solved_clue_color : Color
 
 @export var solver_scene : PackedScene
-var solver
+var solver : Solver
 
 var solved := false
 
@@ -64,9 +64,8 @@ func _ready() -> void:
 
 	$Message.hide()
 
-	if solver_scene != null and solver_scene.can_instantiate():
-		solver = solver_scene.instantiate()
-		add_child(solver)
+	solver = Solver.new()
+	solver.Init(grid_size)
 	solved = false
 
 func _draw() -> void:
