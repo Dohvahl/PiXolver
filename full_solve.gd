@@ -57,7 +57,7 @@ func _ready() -> void:
 		var solver = solver_scene.instantiate()
 		add_child(solver)
 
-		var results = solver.run(puzzle, false)
+		var results = solver.Run(puzzle, false)
 		if results.get("is_solved"): total_solved += 1
 		else:
 			var pct_filled = results.get("filled", 0.0)

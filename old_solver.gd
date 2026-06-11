@@ -223,20 +223,26 @@ func _is_line_solved(puzzle: Puzzle, index: int, iter_direction: Vector2i) -> bo
 
 ## Returns true if the row/column is solved by this
 func _try_line_solve(puzzle: Puzzle, index: int, clues: Array[Clue], iteration_direction: Vector2i, fill_direction: Vector2i) -> bool:
+	if index == 11:
+		print("Index: %d, Marked Start: %d" % [index, puzzle.columns[11].marked_cells])
+
 	var bounds := _get_array_bounds(puzzle, index, iteration_direction, fill_direction, clues)
 	var start_offset := bounds[0]
 	var end_offset := bounds[1]
 
+	var line_size := puzzle.grid_size - start_offset - end_offset
+
+	var start_cell := (iteration_direction * index) + (fill_direction * start_offset)
+	var end_cell := (iteration_direction * index) + (fill_direction * (puzzle.grid_size - end_offset - 1))
+
 	# Simple Boxes
-	var line := _sb_calculate_intersections(puzzle.grid_size - start_offset - end_offset, clues)
+	var marked_cells := puzzle.get_marked_cells(index, fill_direction, start_offset, line_size)
+	var line := _sb_calculate_intersections(line_size, clues, marked_cells)
 	puzzle.fill_line(index, fill_direction, line.filled_cells, start_offset)
 	if puzzle.is_line_solved(index, fill_direction):
 		puzzle.mark_empty_cells(index, fill_direction)
 		tracker.mark_solved(iteration_direction, index)
 		return true
-
-	var start_cell := (iteration_direction * index) + (fill_direction * start_offset)
-	var end_cell := (iteration_direction * index) + (fill_direction * (puzzle.grid_size - end_offset - 1))
 
 	# Checks related to the edges of the row/column
 	var first_clue = clues[0]
@@ -306,7 +312,7 @@ func _get_array_bounds(puzzle: Puzzle, index: int, iteration_direction: Vector2i
 ## Create two overlapping bitsets using the clues: one starting from the right, one from the left.
 ## Compare the two bitsets for overlapping bits. If the overlapping bits come from the same clue,
 ## then that bit can be filled in
-func _sb_calculate_intersections(size: int, clues: Array[Clue]) -> CellArray:
+func _sb_calculate_intersections(size: int, clues: Array[Clue], marked_cells: int) -> CellArray:
 	# Solved clues at the very start and very end should be ignored
 	var n := clues.size()
 
@@ -323,23 +329,30 @@ func _sb_calculate_intersections(size: int, clues: Array[Clue]) -> CellArray:
 			else: shrink_end = false
 
 	var lpos := 0
-	var rpos := size
 	var lstarts : Array[int] = []
 	lstarts.resize(n)
+
+	var rpos := size
 	var rstarts : Array[int] = []
 	rstarts.resize(n)
 
 	var lstarts_index := lclue
 	var rstarts_index := rclue
-	while lstarts_index < n and rstarts_index >= 0:
-		lstarts[lstarts_index] = lpos
-		lpos += clues[lstarts_index]._value + 1
-		lstarts_index += 1
+	while lstarts_index < n or rstarts_index >= 0:
+		if ((1 << lpos) & marked_cells) == (1 << lpos):
+			lpos += 1
+		elif lstarts_index < n:
+			lstarts[lstarts_index] = lpos
+			lpos += clues[lstarts_index]._value + 1
+			lstarts_index += 1
 
-		rpos -= clues[rstarts_index]._value
-		rstarts[rstarts_index] = rpos
-		rpos -= 1
-		rstarts_index -= 1
+		if ((1 << (rpos - 1)) & marked_cells) == (1 << (rpos - 1)):
+			rpos -= 1
+		elif rstarts_index >= 0:
+			rpos -= clues[rstarts_index]._value
+			rstarts[rstarts_index] = rpos
+			rpos -= 1
+			rstarts_index -= 1
 
 	var intersect := 0
 	for i in range(lclue, rclue + 1):

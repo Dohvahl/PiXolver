@@ -4,13 +4,13 @@ extends Control
 	set(new):
 		show_left = new
 		if solver:
-			solver.run_single(puzzle, 0, debug)
+			solver.RunSingle(puzzle, 0, debug)
 		queue_redraw()
 @export var intersect := false :
 	set(new):
 		intersect = new
 		if solver:
-			solver.run_single(puzzle, 0, debug)
+			solver.RunSingle(puzzle, 0, debug)
 		queue_redraw()
 var puzzle : Puzzle							# data representation of the puzzle
 
@@ -103,7 +103,7 @@ func _input(event: InputEvent) -> void:
 			elif puzzle.mark_cell(cell_clicked):
 				queue_redraw()
 	elif event.is_action_pressed("run_solver"):
-		var results = solver.run(puzzle, debug)
+		var results = solver.Run(puzzle, debug)
 		if results.get("is_solved"):
 			print("Solved!")
 		else:
@@ -113,18 +113,18 @@ func _input(event: InputEvent) -> void:
 			print("Incorrect Cells: %d/%d" % [int(results.get("incorrect")), puzzle.grid_size * puzzle.grid_size])
 		queue_redraw()
 	elif event.is_action_pressed("run_solver_single"):
-		solver.run_single(puzzle, iterations, debug)
+		solver.RunSingle(puzzle, iterations, debug)
 		iterations += 1
 		queue_redraw()
 	elif event.is_action_pressed("solve_rows"):
-		solver.run_rows(puzzle)
+		solver.RunRows(puzzle)
 		queue_redraw()
 	elif event.is_action_pressed("solve_columns"):
-		solver.run_columns(puzzle)
+		solver.RunColumns(puzzle)
 		queue_redraw()
 	elif event.is_action_pressed("reset"):
 		puzzle.reset()
-		solver.reset()
+		solver.Reset()
 		iterations = 0
 		queue_redraw()
 
