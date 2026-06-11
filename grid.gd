@@ -53,10 +53,11 @@ func _ready() -> void:
 	assert(puzzle_file, "Failed to open sample puzzle %d: '%s'" % [puzzle_number, FileAccess.get_open_error()])
 	initial_state = puzzle_file.get_as_text()
 
-	puzzle = Puzzle.new(puzzle_file.get_path(), grid_size, initial_state)
+	puzzle = Puzzle.new()
+	puzzle.Initialize(puzzle_file.get_path(), grid_size, initial_state)
 
-	_total_width = CELL_SIZE * (puzzle.max_row_clues + grid_size)
-	_total_height = CELL_SIZE * (puzzle.max_col_clues + grid_size)
+	_total_width = CELL_SIZE * (puzzle.MaxRowClues + grid_size)
+	_total_height = CELL_SIZE * (puzzle.MaxColumnClues + grid_size)
 
 	# size the window to contain the whole puzzle
 	get_window().content_scale_size = Vector2i(_total_width, _total_height)
@@ -77,7 +78,7 @@ func _draw() -> void:
 	_draw_puzzle_grid()
 
 	# check if we've solved it
-	if puzzle.is_solved():
+	if puzzle.IsSolved():
 		solved = true
 		$Message.text = "Solved!"
 		$Message.show()
@@ -89,18 +90,18 @@ func _input(event: InputEvent) -> void:
 
 	if event is InputEventMouseButton and event.is_pressed():
 		var cell_clicked = _get_cell_index_from_position(event.position)
-		if !puzzle.is_valid_cell_index(cell_clicked):
+		if !puzzle.IsValidCellIndex(cell_clicked):
 			return
 
 		if event.button_index == MOUSE_BUTTON_LEFT:	# left click
 			# Toggle cell
-			if puzzle.toggle_cell(cell_clicked.x, cell_clicked.y):
+			if puzzle.ToggleCell(cell_clicked.x, cell_clicked.y):
 				queue_redraw()
 		elif event.button_index == MOUSE_BUTTON_RIGHT: # right click
 			# Mark cell
-			if puzzle.is_cell_marked(cell_clicked) && puzzle.unmark_cell(cell_clicked.x, cell_clicked.y):
+			if puzzle.IsCellMarked(cell_clicked) && puzzle.UnmarkCell(cell_clicked.x, cell_clicked.y):
 				queue_redraw()
-			elif puzzle.mark_cell(cell_clicked):
+			elif puzzle.MarkCell(cell_clicked):
 				queue_redraw()
 	elif event.is_action_pressed("run_solver"):
 		var results = solver.Run(puzzle, debug)
@@ -110,7 +111,7 @@ func _input(event: InputEvent) -> void:
 			print("\n")
 			print("Percent Correctly Filled: %.2f%%" % (float(results.get("filled")) * 100))
 			print("Percent Correct: %.2f%%" % (float(results.get("solved")) * 100))
-			print("Incorrect Cells: %d/%d" % [int(results.get("incorrect")), puzzle.grid_size * puzzle.grid_size])
+			print("Incorrect Cells: %d/%d" % [int(results.get("incorrect")), puzzle.GridSize * puzzle.GridSize])
 		queue_redraw()
 	elif event.is_action_pressed("run_solver_single"):
 		solver.RunSingle(puzzle, iterations, debug)
@@ -123,7 +124,7 @@ func _input(event: InputEvent) -> void:
 		solver.RunColumns(puzzle)
 		queue_redraw()
 	elif event.is_action_pressed("reset"):
-		puzzle.reset()
+		puzzle.Reset()
 		solver.Reset()
 		iterations = 0
 		queue_redraw()
@@ -134,8 +135,8 @@ func _input(event: InputEvent) -> void:
 
 func _draw_row_clues() -> void:
 	for row_index in range(0, grid_size):
-		var clue_color = solved_color if puzzle.is_row_solved(row_index) else unsolved_color
-		var clues := puzzle.get_row_clues(row_index)
+		var clue_color = solved_color if puzzle.IsRowSolved(row_index) else unsolved_color
+		var clues := puzzle.GetRowClues(row_index)
 		if clues.is_empty():
 			# draw a '0'
 			var clue_position := _get_row_clue_position(row_index, 1)
@@ -153,10 +154,10 @@ func _draw_row_clues() -> void:
 		# draw the clues right-justified
 		var i = 0
 		while i < clues.size():
-			var clue := clues[clues.size() - i - 1]
+			var clue = clues[clues.size() - i - 1]
 			var clue_position := _get_row_clue_position(row_index, i)
-			var color = solved_clue_color if clue.is_solved() else unsolved_clue_color
-			draw_string(ThemeDB.fallback_font, clue_position, str(clue._value), HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE, 16, color)
+			var color = solved_clue_color if clue.IsSolved() else unsolved_clue_color
+			draw_string(ThemeDB.fallback_font, clue_position, str(clue.Value), HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE, 16, color)
 #region DEBUG
 			if debug:
 				var clue_rect = Rect2(
@@ -169,8 +170,8 @@ func _draw_row_clues() -> void:
 
 func _draw_column_clues() -> void:
 	for col_index in range(0, grid_size):
-		var clue_color = solved_color if puzzle.is_column_solved(col_index) else unsolved_color
-		var clues := puzzle.get_col_clues(col_index)
+		var clue_color = solved_color if puzzle.IsColumnSolved(col_index) else unsolved_color
+		var clues := puzzle.GetColClues(col_index)
 		if clues.is_empty():
 			# draw a '0'
 			var clue_position = _get_col_clue_position(col_index, 1)
@@ -188,10 +189,10 @@ func _draw_column_clues() -> void:
 		# draw the clues bottom-up
 		var i = 0
 		while i < clues.size():
-			var clue := clues[clues.size() - 1 - i]
+			var clue = clues[clues.size() - 1 - i]
 			var clue_position = _get_col_clue_position(col_index, i)
-			var color = solved_clue_color if clue.is_solved() else unsolved_clue_color
-			draw_string(ThemeDB.fallback_font, clue_position, str(clue._value), HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE, 16, color)
+			var color = solved_clue_color if clue.IsSolved() else unsolved_clue_color
+			draw_string(ThemeDB.fallback_font, clue_position, str(clue.Value), HORIZONTAL_ALIGNMENT_CENTER, CELL_SIZE, 16, color)
 #region DEBUG
 			if debug:
 				var clue_rect = Rect2(
@@ -207,16 +208,16 @@ func _draw_puzzle_grid() -> void:
 		var vert_line_size = 3 if x % 5 == 0 else 1
 		for y in range(grid_size):
 			var rect = Rect2(
-				CELL_SIZE * (x + puzzle.max_row_clues),
-				CELL_SIZE * (y + puzzle.max_col_clues),
+				CELL_SIZE * (x + puzzle.MaxRowClues),
+				CELL_SIZE * (y + puzzle.MaxColumnClues),
 				CELL_SIZE,
 				CELL_SIZE
 				)
 
 			var cell_location = _get_cell_index_from_position(rect.position)
-			if puzzle.is_cell_filled(cell_location):
+			if puzzle.IsCellFilled(cell_location):
 				draw_rect(rect, Color.BLACK, true)
-			elif puzzle.is_cell_marked(cell_location):
+			elif puzzle.IsCellMarked(cell_location):
 				draw_rect(rect, Color.RED, true)
 			else:
 				draw_rect(rect, Color.WHITE, false, 1)
@@ -231,8 +232,8 @@ func _get_cell_index_from_position(pos: Vector2) -> Vector2i:
 	if pos < Vector2.ZERO:
 		return Vector2i.MIN
 
-	var clicked_x = int(pos.x / CELL_SIZE) - puzzle.max_row_clues
-	var clicked_y = int(pos.y / CELL_SIZE) - puzzle.max_col_clues
+	var clicked_x = int(pos.x / CELL_SIZE) - puzzle.MaxRowClues
+	var clicked_y = int(pos.y / CELL_SIZE) - puzzle.MaxColumnClues
 
 	# we have to account for the clues areas when checking the grid locations
 	if clicked_x < 0 or clicked_y < 0:
@@ -245,14 +246,14 @@ func _get_cell_index_from_position(pos: Vector2) -> Vector2i:
 
 func _get_row_clue_position(row_index: int, offset: int) -> Vector2:
 	return Vector2i(
-		(puzzle.max_row_clues - offset - 1) * CELL_SIZE,
-		(puzzle.max_col_clues * CELL_SIZE) + (row_index * CELL_SIZE) + FONT_OFFSET
+		(puzzle.MaxRowClues - offset - 1) * CELL_SIZE,
+		(puzzle.MaxColumnClues * CELL_SIZE) + (row_index * CELL_SIZE) + FONT_OFFSET
 	)
 
 func _get_col_clue_position(col_index: int, offset: int) -> Vector2:
 	return Vector2i(
-		(puzzle.max_row_clues * CELL_SIZE) + (col_index * CELL_SIZE),
-		(puzzle.max_col_clues - offset - 1) * CELL_SIZE + FONT_OFFSET
+		(puzzle.MaxRowClues * CELL_SIZE) + (col_index * CELL_SIZE),
+		(puzzle.MaxColumnClues - offset - 1) * CELL_SIZE + FONT_OFFSET
 	)
 
 #endregion
