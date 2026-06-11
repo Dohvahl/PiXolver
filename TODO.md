@@ -15,7 +15,7 @@
 - [x] detect and mark start/end cells that are just passed the closest clue
 - [x] show percentage solved (full puzzle)
 - [x] check for "completed clue" while glueing
-- [ ] maybe account for marked cells when using SB
+- [x] maybe account for marked cells when using SB
 	- have to be careful about actual filling though
 
 # CLEANUP
@@ -25,7 +25,6 @@
 - [ ] make `is_row_solved` more sophisticated
 
 # OPTIMIZE
-- [ ] solver.partial_fill may be able to be simplified
 - [ ] stack of "lines to solve" instead of just looping through all
 - [ ] refactor `get_array_bounds` to use single loop
 - [ ] cache line starts/ends
