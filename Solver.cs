@@ -82,6 +82,7 @@ public partial class Solver : Node
 
 		int gridSize = puzzle.GridSize;
 		_tracker.ResizeLargestClues(gridSize);
+		_tracker.ResizeUnsolvedClues(gridSize);
 
 		// preprocess the puzzle to get some basic information
 		for (int i = 0; i < gridSize; i++)
@@ -172,7 +173,7 @@ public partial class Solver : Node
 	private bool TryLineSolve(Puzzle puzzle, int index, Godot.Collections.Array<Clue> clues, Vector2I iterationDirection, Vector2I fillDirection)
 	{
 		int gridSize = puzzle.GridSize;
-		(int startOffset, int endOffset) = GetArrayBounds(puzzle, index, iterationDirection, fillDirection, clues);
+		(int startOffset, int endOffset) = GetLineBounds(puzzle, index, iterationDirection, fillDirection, clues);
 
 		int lineSize = gridSize - startOffset - endOffset;
 
@@ -206,13 +207,14 @@ public partial class Solver : Node
 	/// <summary>
 	/// Find the "virtual" start and end of the row/column, taking marked cells into account.
 	/// </summary>
-	private static (int StartOffset, int EndOffset) GetArrayBounds(Puzzle puzzle, int index, Vector2I iterationDirection, Vector2I fillDirection, Godot.Collections.Array<Clue> clues)
+	private (int StartOffset, int EndOffset) GetLineBounds(Puzzle puzzle, int index, Vector2I iterationDirection, Vector2I fillDirection, Godot.Collections.Array<Clue> clues)
 	{
 		int gridSize = puzzle.GridSize;
-		int clueIndex = 0;
+		int lowClueIndex = 0;
+		int highClueIndex = clues.Count - 1;
 
-		// previous iterations may have marked cells at the start or end, these can be skipped
-		int startOffset = 0;
+        // previous iterations may have marked cells at the start or end, these can be skipped
+        int startOffset = 0;
 		Vector2I startingCell = iterationDirection * index;
 		while (puzzle.IsValidCellIndex(startingCell) && !puzzle.IsCellEmpty(startingCell))
 		{
@@ -222,30 +224,30 @@ public partial class Solver : Node
 			}
 			else if (puzzle.IsCellFilled(startingCell))
 			{
-				int clueVal = clues[clueIndex].Value;
-				if (clues[clueIndex].IsSolved())
+				int clueVal = clues[lowClueIndex].Value;
+				if (clues[lowClueIndex].IsSolved())
 				{
 					startOffset += clueVal + 1;
 					startingCell += fillDirection * clueVal;
-					clueIndex += 1;
+                    lowClueIndex += 1;
 				}
 				// if the filled cells satisfy the clue, we can punctuate the clue and move on
 				else if (puzzle.AreNCellsFilled(startingCell, fillDirection, clueVal))
 				{
-					clues[clueIndex].MarkSolved();
+					clues[lowClueIndex].MarkSolved();
 					startingCell += fillDirection * clueVal;
 					// Punctuate the clue then move on
 					if (puzzle.IsCellEmpty(startingCell))
 						puzzle.MarkCell(startingCell);
 					startOffset += clueVal + 1;
-					clueIndex += 1;
+                    lowClueIndex += 1;
 				}
 			}
 
 			startingCell += fillDirection;
 		}
 
-		clueIndex = clues.Count - 1;
+		highClueIndex = clues.Count - 1;
 		int endOffset = 0;
 		Vector2I endCell = (iterationDirection * index) + (fillDirection * (gridSize - 1));
 		while (puzzle.IsValidCellIndex(endCell) && !puzzle.IsCellEmpty(endCell))
@@ -256,28 +258,30 @@ public partial class Solver : Node
 			}
 			else if (puzzle.IsCellFilled(endCell))
 			{
-				int clueVal = clues[clueIndex].Value;
-				if (clues[clueIndex].IsSolved())
+				int clueVal = clues[highClueIndex].Value;
+				if (clues[highClueIndex].IsSolved())
 				{
 					endOffset += clueVal + 1;
 					endCell -= fillDirection * clueVal;
-					clueIndex -= 1;
+                    highClueIndex -= 1;
 				}
 				// if the filled cells satisfy the clue, we can punctuate the clue and move on
 				else if (puzzle.AreNCellsFilled(endCell - (fillDirection * (clueVal - 1)), fillDirection, clueVal))
 				{
-					clues[clueIndex].MarkSolved();
+					clues[highClueIndex].MarkSolved();
 					endCell -= fillDirection * clueVal;
 					// Punctuate the clue then move on
 					if (puzzle.IsCellEmpty(endCell))
 						puzzle.MarkCell(endCell);
 					endOffset += clueVal + 1;
-					clueIndex -= 1;
+                    highClueIndex -= 1;
 				}
 			}
 
 			endCell -= fillDirection;
 		}
+
+		_tracker.UpdateUnsolvedClues(index, iterationDirection, lowClueIndex, highClueIndex);
 
 		return (startOffset, endOffset);
 	}
@@ -562,12 +566,18 @@ public partial class Solver : Node
 		private readonly System.Collections.Generic.HashSet<int> _solvedRows = new();
 		private readonly System.Collections.Generic.HashSet<int> _solvedColumns = new();
 
+		// indices of the first/last unsolved clues for each row and column
+		public (int, int)[] UnsolvedRowClues { get; private set; } = Array.Empty<(int, int)>();
+		public (int, int)[] UnsolvedColumnClues { get; private set; } = Array.Empty<(int, int)>();
+
 		public void Reset()
 		{
 			_solvedRows.Clear();
 			_solvedColumns.Clear();
 			LargestRowClues = Array.Empty<int>();
 			LargestColumnClues = Array.Empty<int>();
+			UnsolvedRowClues = Array.Empty<(int, int)>();
+			UnsolvedColumnClues = Array.Empty<(int, int)>();
 		}
 
 		public void ResizeLargestClues(int size)
@@ -576,6 +586,19 @@ public partial class Solver : Node
 				LargestRowClues = new int[size];
 			if (LargestColumnClues.Length != size)
 				LargestColumnClues = new int[size];
+		}
+
+		public void ResizeUnsolvedClues(int size)
+		{
+			if (UnsolvedRowClues.Length != size)
+				UnsolvedRowClues = new (int, int)[size];
+			if (UnsolvedColumnClues.Length != size)
+				UnsolvedColumnClues = new (int, int)[size];
+			for (int i = 0; i < size; i++)
+			{
+				UnsolvedRowClues[i] = (0, 0);
+				UnsolvedColumnClues[i] = (0, 0);
+			}
 		}
 
 		public int GetLargestClue(Vector2I iterDirection, int index)
@@ -602,6 +625,14 @@ public partial class Solver : Node
 				_solvedRows.Add(index);
 			else if (iterDirection == Vector2I.Right)
 				_solvedColumns.Add(index);
+		}
+
+		public void UpdateUnsolvedClues(int lineIndex, Vector2I iterDirection, int low, int high)
+		{
+			if (iterDirection == Vector2I.Down) // row clues
+				UnsolvedRowClues[lineIndex] = (low, high);
+			if (iterDirection == Vector2I.Right) // column clues
+				UnsolvedColumnClues[lineIndex] = (low, high);
 		}
 	}
 
