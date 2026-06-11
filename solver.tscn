@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://1gnjb8s457r2"]
 
-[ext_resource type="Script" uid="uid://6jlqh80fmxcq" path="res://solver.gd" id="1_e7axl"]
+[ext_resource type="Script" uid="uid://b7gdhrxahbury" path="res://Solver.cs" id="1_e7axl"]
 
 [node name="solver" type="Node" unique_id=599702229]
 script = ExtResource("1_e7axl")

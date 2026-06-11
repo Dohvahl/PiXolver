@@ -21,6 +21,10 @@ window/size/viewport_width=1260
 window/size/viewport_height=1260
 window/stretch/mode="canvas_items"
 
+[dotnet]
+
+project/assembly_name="PiXolver"
+
 [editor]
 
 version_control/plugin_name="GitPlugin"
