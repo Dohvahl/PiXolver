@@ -420,7 +420,7 @@ public partial class Solver : RefCounted
 			if (lowestSetIndex > -1 && lowestSetIndex < gridSize)
 			{
 		        // the cell that is the lowest set
-		        Vector2I firstFilled = startCell + (fillDirection * lowestSetIndex);
+		        Vector2I firstFilled = (startCell * new Vector2I(fillDirection.Y, fillDirection.X)) + (fillDirection * lowestSetIndex);
 		
 				int fillAmount = 0;
 				Vector2I startingPoint;
@@ -497,7 +497,7 @@ public partial class Solver : RefCounted
 			Vector2I zerodCell = startCell * fillDirection;
 			int firstIndex = Math.Max(zerodCell.X, zerodCell.Y);
 
-			int highestFilledIndex = puzzle.GetFirstFilled(startCell, fillDirection, firstClue.Value + 1);
+			int highestFilledIndex = puzzle.GetLastFilled(startCell + (fillDirection * firstClue.Value), fillDirection, firstClue.Value + 1);
 			if (highestFilledIndex > -1)
 			{
 				if (highestFilledIndex == firstClue.Value + firstIndex)
