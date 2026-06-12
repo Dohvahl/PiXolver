@@ -194,7 +194,10 @@ public partial class Solver : RefCounted
 		// Checks related to the edges of the row/column
 		(int lo, int hi) = _tracker.GetUnsolvedClueBounds(iterationDirection, index);
 		if (lo > hi)
-			lo = 0; hi = clues.Count - 1;
+		{
+			lo = 0; 
+			hi = clues.Count - 1;
+		}
         Clue firstClue = clues[Math.Max(lo, 0)];
 		Clue lastClue = clues[Math.Min(hi, clues.Count - 1)];
 		TryGlueing(puzzle, startCell, endCell, firstClue, lastClue, fillDirection);
