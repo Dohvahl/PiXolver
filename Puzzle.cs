@@ -117,7 +117,7 @@ public partial class Puzzle : RefCounted
 		else if (fillDirection == Vector2I.Down) // column
 			cells = ColumnMarked(index);
 
-		return BitOps.FieldMask(window, offset) & (cells >> offset);
+		return BitOps.FieldMask(window) & (cells >> offset);
 	}
 
 	/// <summary>Get the first filled cell, starting from startCell, up to count. Returns -1 if none are set.</summary>

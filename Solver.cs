@@ -324,9 +324,11 @@ public partial class Solver : RefCounted
 
 		int lpos = 0;
 		int[] lstarts = new int[n];
+		Array.Fill(lstarts, -1);
 
 		int rpos = size;
 		int[] rstarts = new int[n];
+		Array.Fill(rstarts, -1);
 
 		int lstartsIndex = lclue;
 		int rstartsIndex = rclue;
@@ -359,7 +361,10 @@ public partial class Solver : RefCounted
 		uint intersect = 0;
 		for (int i = lclue; i <= rclue; i++)
 		{
-			int clueVal = clues[i].Value;
+			if (clues[i].IsSolved() || lstarts[i] == -1 || rstarts[i] == -1)
+                continue;	// just a sanity check, this should never happen
+
+            int clueVal = clues[i].Value;
 			uint leftMask = BitOps.FieldMask(lstarts[i] + clueVal);
 			uint rightMask = ~((1u << rstarts[i]) - 1u);
 			intersect |= leftMask & rightMask;
@@ -502,7 +507,7 @@ public partial class Solver : RefCounted
 				int start = Math.Max(zerodStart.X, zerodStart.Y);
 				int numSpaces = lowestMarked - start;
 				if (numSpaces > 0 && numSpaces < firstClue.Value)
-					MarkNCells(puzzle, startCell, lowestMarked, fillDirection, endCell);
+					MarkNCells(puzzle, startCell, numSpaces, fillDirection, endCell);
 			}
 		}
 
