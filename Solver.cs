@@ -330,31 +330,56 @@ public partial class Solver : RefCounted
 		int[] rstarts = new int[n];
 		Array.Fill(rstarts, -1);
 
+		// Calculate the minimum starting cell of each clue, from each side
 		int lstartsIndex = lclue;
 		int rstartsIndex = rclue;
 		while (lstartsIndex < n || rstartsIndex >= 0)
 		{
+			// if the current cell is marked skip to the next cell
 			if (((1u << lpos) & markedCells) == (1u << lpos))
 			{
 				lpos += 1;
 			}
 			else if (lstartsIndex < n)
 			{
-				lstarts[lstartsIndex] = lpos;
-				lpos += clues[lstartsIndex].Value + 1;
-				lstartsIndex += 1;
+				int clueValue = clues[lstartsIndex].Value;
+				int firstMarked = BitOps.FirstSet(markedCells, lpos, clueValue + 1);
+                // if there is not enough space to fit the clue, skip to the cell beyond 
+                // where the clue would end if it started at lpos
+                if (firstMarked > -1 && firstMarked < lpos + clueValue)
+				{
+					lpos = firstMarked + 1;
+				}
+				else
+				{
+					lstarts[lstartsIndex] = lpos;
+					lpos += clueValue + 1;
+					lstartsIndex += 1;
+				}
 			}
 
-			if (((1u << (rpos - 1)) & markedCells) == (1u << (rpos - 1)))
+            // if the current cell is marked skip to the next cell
+            if (((1u << (rpos - 1)) & markedCells) == (1u << (rpos - 1)))
 			{
 				rpos -= 1;
 			}
 			else if (rstartsIndex >= 0)
 			{
-				rpos -= clues[rstartsIndex].Value;
-				rstarts[rstartsIndex] = rpos;
-				rpos -= 1;
-				rstartsIndex -= 1;
+                int clueValue = clues[rstartsIndex].Value;
+				int lastMarked = BitOps.LastSet(markedCells, rpos - clueValue, clueValue + 1);
+                // if there is not enough space to fit the clue, skip to the cell beyond 
+                // where the clue would end if it started at lpos
+                if (lastMarked > -1 && lastMarked + clueValue < rpos)
+				{
+					rpos = lastMarked - 1;
+				}
+				else
+				{
+					rpos -= clueValue;
+					rstarts[rstartsIndex] = rpos;
+					rpos -= 1;
+					rstartsIndex -= 1;
+				}
 			}
 		}
 
