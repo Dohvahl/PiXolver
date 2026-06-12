@@ -49,12 +49,14 @@ public partial class FullSolve : Node
 		double minCorFillPct = double.PositiveInfinity;
 		double maxCorFillPct = double.NegativeInfinity;
 		double avgCorFillPct = 0.0;
+		string minCorFillPuzzle = "";
 		string maxCorFillPuzzle = "";
 
 		// stats on correct cells. This includes correctly empty cells
 		double minSolPct = double.PositiveInfinity;
 		double maxSolPct = double.NegativeInfinity;
 		double avgSolPct = 0.0;
+		string minSolPuzzle = "";
 		string maxSolPuzzle = "";
 
 		// stats on incorrect cells
@@ -87,7 +89,11 @@ public partial class FullSolve : Node
 				double pctSolved = results.TryGetValue("solved", out Variant solvedValue) ? solvedValue.AsDouble() : 0.0;
 				int incorrect = results.TryGetValue("incorrect", out Variant incorrectValue) ? incorrectValue.AsInt32() : 0;
 
-				minCorFillPct = Mathf.Min(pctFilled, minCorFillPct);
+				if (pctFilled < minCorFillPct)
+				{
+                    minCorFillPct = pctFilled;
+                    minCorFillPuzzle = puzzle.PuzzleFile;
+                }
 				if (pctFilled > maxCorFillPct)
 				{
 					maxCorFillPct = pctFilled;
@@ -95,7 +101,11 @@ public partial class FullSolve : Node
 				}
 				avgCorFillPct += pctFilled;
 
-				minSolPct = Mathf.Min(pctSolved, minSolPct);
+				if (pctSolved < minSolPct)
+				{
+					minSolPct = pctSolved;
+					minSolPuzzle = puzzle.PuzzleFile;
+                }
 				if (pctSolved > maxSolPct)
 				{
 					maxSolPct = pctSolved;
@@ -131,11 +141,11 @@ public partial class FullSolve : Node
 
 		GD.Print($"Average solve time: {(double)(endTime - startTime) / totalRun:F2} microsecs");
 
-		GD.Print($"\nMin Correctly Filled Cells: {minCorFillPct * 100:F2}%");
+		GD.Print($"\nMin Correctly Filled Cells: {minCorFillPct * 100:F2}%, Puzzle - {minCorFillPuzzle}");
 		GD.Print($"Max Correctly Filled Cells: {maxCorFillPct * 100:F2}%, Puzzle - {maxCorFillPuzzle}");
 		GD.Print($"Average Correctly Filled Cells: {avgCorFillPct * 100:F2}%");
 
-		GD.Print($"\nMin Correct Cells: {minSolPct * 100:F2}%");
+		GD.Print($"\nMin Correct Cells: {minSolPct * 100:F2}%, Puzzle - {minSolPuzzle}");
 		GD.Print($"Max Correct Cells: {maxSolPct * 100:F2}%, Puzzle - {maxSolPuzzle}");
 		GD.Print($"Average Correct Cells: {avgSolPct * 100:F2}%");
 
