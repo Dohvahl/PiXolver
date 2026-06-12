@@ -84,6 +84,9 @@ public partial class Solver : RefCounted
 
 		int gridSize = puzzle.GridSize;
 
+		// snapshot the grid so we can tell whether this iteration makes any progress
+		_tracker.SaveState(puzzle);
+
 		// preprocess the puzzle to get some basic information
 		for (int i = 0; i < gridSize; i++)
 		{
@@ -114,7 +117,7 @@ public partial class Solver : RefCounted
 
 		// if this iteration didn't change the state of the puzzle, we're not improving the
 		// solution, so there's no point in continuing
-		return true;
+		return !puzzle.IsSolved() && _tracker.StateChanged(puzzle);
 	}
 
 	public void RunRows(Puzzle puzzle)
@@ -609,11 +612,17 @@ public partial class Solver : RefCounted
 		public (int, int)[] UnsolvedRowClues { get; private set; } = Array.Empty<(int, int)>();
 		public (int, int)[] UnsolvedColumnClues { get; private set; } = Array.Empty<(int, int)>();
 
+		// snapshot of the grid (per-row filled/marked bitmasks) taken at the start of RunSingle,
+		// used to detect when an iteration made no progress
+		private uint[] _previousFilled = Array.Empty<uint>();
+		private uint[] _previousMarked = Array.Empty<uint>();
+
 		public void Init(int size)
 		{
 			gridSize = size;
 			ResizeLargestClues(size);
 			ResizeUnsolvedClues(size);
+			ResizeState(size);
 		}
 
 		public void Reset()
@@ -627,7 +636,8 @@ public partial class Solver : RefCounted
 
 			ResizeUnsolvedClues(gridSize);
 			ResizeLargestClues(gridSize);
-        }
+			ResizeState(gridSize);
+		}
 
 		public void ResizeLargestClues(int size)
 		{
@@ -648,6 +658,36 @@ public partial class Solver : RefCounted
 				UnsolvedRowClues[i] = (0, 0);
 				UnsolvedColumnClues[i] = (0, 0);
 			}
+		}
+
+		public void ResizeState(int size)
+		{
+			if (_previousFilled.Length != size)
+				_previousFilled = new uint[size];
+			if (_previousMarked.Length != size)
+				_previousMarked = new uint[size];
+		}
+
+		/// <summary>Snapshot the puzzle's current grid (per-row filled/marked bitmasks).</summary>
+		public void SaveState(Puzzle puzzle)
+		{
+			for (int i = 0; i < _previousFilled.Length; i++)
+			{
+				_previousFilled[i] = puzzle.RowFilledBits(i);
+				_previousMarked[i] = puzzle.RowMarkedBits(i);
+			}
+		}
+
+		/// <summary>Returns true if the puzzle's grid differs from the last <see cref="SaveState"/>.</summary>
+		public bool StateChanged(Puzzle puzzle)
+		{
+			for (int i = 0; i < _previousFilled.Length; i++)
+			{
+				if (_previousFilled[i] != puzzle.RowFilledBits(i)
+					|| _previousMarked[i] != puzzle.RowMarkedBits(i))
+					return true;
+			}
+			return false;
 		}
 
 		public int GetLargestClue(Vector2I iterDirection, int index)

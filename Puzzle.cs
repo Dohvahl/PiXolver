@@ -364,6 +364,7 @@ public partial class Puzzle : RefCounted
 
 	// Accessors for the solver (same assembly), so it doesn't reach into the grid directly.
 	internal uint RowFilledBits(int row) => RowFilled(row);
+	internal uint RowMarkedBits(int row) => RowMarked(row);
 	internal uint SolutionRowFilledBits(int row) => SolutionRowFilled(row);
 	internal int RowMaxClueValue(int row) => _rowClues[row].MaxClueValue;
 	internal int ColumnMaxClueValue(int col) => _columnClues[col].MaxClueValue;

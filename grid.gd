@@ -113,7 +113,8 @@ func _input(event: InputEvent) -> void:
 			print("Incorrect Cells: %d/%d" % [int(results.get("incorrect")), puzzle.GridSize * puzzle.GridSize])
 		queue_redraw()
 	elif event.is_action_pressed("run_solver_single"):
-		solver.RunSingle(puzzle, iterations, debug)
+		if (!solver.RunSingle(puzzle, iterations, debug)):
+			print("No Change")
 		iterations += 1
 		queue_redraw()
 	elif event.is_action_pressed("solve_rows"):
