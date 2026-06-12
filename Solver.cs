@@ -9,7 +9,7 @@ using System;
 public partial class Solver : RefCounted
 {
 	[Export]
-	public int MaxIterations { get; set; } = 10;
+	public int MaxIterations { get; set; } = 20;
 
 	private SolverData _tracker;
 
