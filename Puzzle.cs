@@ -106,7 +106,21 @@ public partial class Puzzle : RefCounted
 		return (cells & nMask) == nMask;
 	}
 
-	public uint GetMarkedCells(int index, Vector2I fillDirection, int offset = 0, int window = -1)
+    internal uint GetFilledCells(int index, Vector2I fillDirection, int offset, int window = -1)
+    {
+        if (window < 0)
+            window = GridSize - 1;
+
+        uint cells = 0;
+        if (fillDirection == Vector2I.Right) // row
+            cells = RowFilled(index);
+        else if (fillDirection == Vector2I.Down) // column
+            cells = ColumnFilled(index);
+
+        return BitOps.FieldMask(window) & (cells >> offset);
+    }
+
+    public uint GetMarkedCells(int index, Vector2I fillDirection, int offset = 0, int window = -1)
 	{
 		if (window < 0)
 			window = GridSize - 1;
@@ -563,8 +577,8 @@ public partial class Puzzle : RefCounted
 		return _columnClues[col].RecordClue(GridSize, startRow, clue);
 	}
 
-	/// <summary>Clue metadata for a single row or column.</summary>
-	private sealed class ClueLine
+    /// <summary>Clue metadata for a single row or column.</summary>
+    private sealed class ClueLine
 	{
 		public Godot.Collections.Array<Clue> Clues { get; } = new();
 		public int MaxClueValue { get; private set; } = int.MinValue;
