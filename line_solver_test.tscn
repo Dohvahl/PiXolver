@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://dv1jg3h1jfq2i"]
+
+[ext_resource type="Script" uid="uid://tbh6ji0f1p3m" path="res://LineSolverTest.cs" id="1_lstst"]
+
+[node name="LineSolverTest" type="Node" unique_id=1245100571]
+script = ExtResource("1_lstst")

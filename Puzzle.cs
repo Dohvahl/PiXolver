@@ -218,7 +218,38 @@ public partial class Puzzle : RefCounted
 		return true;
 	}
 
-	public void FillLine(int index, Vector2I fillDirection, uint value, int offset = 0)
+    public void SetEmptyCells(int index, Vector2I fillDirection, uint value, int offset = 0)
+    {
+        if (fillDirection == Vector2I.Right) // row
+            SetEmptyRowCells(index, value, offset);
+        else if (fillDirection == Vector2I.Down) // column
+            SetEmptyColumnCells(index, value, offset);
+
+    }
+
+    private void SetEmptyColumnCells(int index, uint value, int offset)
+    {
+        int i = 0;
+        while (offset + i < GridSize)
+        {
+            if ((value & (1u << i)) != 0)
+                EmptyCell(index, offset + i);
+            i += 1;
+        }
+    }
+
+    private void SetEmptyRowCells(int index, uint value, int offset)
+    {
+		int i = 0;
+		while (offset + i < GridSize)
+		{
+			if ((value & (1u << i)) != 0)
+				EmptyCell(offset + i, index);
+			i += 1;
+		}
+    }
+
+    public void FillLine(int index, Vector2I fillDirection, uint value, int offset = 0)
 	{
 		if (fillDirection == Vector2I.Right) // row
 			FillRow(index, value, offset);

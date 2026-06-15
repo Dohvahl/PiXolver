@@ -193,11 +193,11 @@ public partial class Solver : RefCounted
 		var lineSolver = new LineSolver(puzzle.GridSize, filledCells, markedCells, clueValues);
 		lineSolver.Deduce(out uint forcedFilled, out uint forcedEmpty);
 		puzzle.FillLine(index, fillDirection, forcedFilled, startOffset);
-		// TODO - set the forced empty cells
+		puzzle.SetEmptyCells(index, fillDirection, forcedEmpty, startOffset);
 
-		//uint line = CalculateIntersections(lineSize, clues, markedCells);
-		//puzzle.FillLine(index, fillDirection, line, startOffset);
-		if (puzzle.IsLineSolved(index, fillDirection))
+        //uint line = CalculateIntersections(lineSize, clues, markedCells);
+        //puzzle.FillLine(index, fillDirection, line, startOffset);
+        if (puzzle.IsLineSolved(index, fillDirection))
 		{
 			puzzle.MarkEmptyCells(index, fillDirection);
 			_tracker.MarkSolved(iterationDirection, index);
