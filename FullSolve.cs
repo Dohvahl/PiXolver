@@ -17,6 +17,11 @@ public partial class FullSolve : Node
 	[Export]
 	public PackedScene SolverScene { get; set; }
 
+	// When > 0, run the solved-clue-trim A/B benchmark (this many timed runs per config) and quit
+	// instead of the normal stats pass. Set to 0 to restore the normal run.
+	[Export]
+	public int BenchmarkRuns { get; set; } = 5;
+
 	// run through each sample puzzle and attempt to solve it
 	public override void _Ready()
 	{
@@ -39,6 +44,13 @@ public partial class FullSolve : Node
 			puzzle.Initialize(samplePuzzle.GetPath(), 30, samplePuzzle.GetAsText());
 			samplePuzzles[i] = puzzle;
 			i += 1;
+		}
+
+		if (BenchmarkRuns > 0)
+		{
+			RunTrimBenchmark(samplePuzzles, BenchmarkRuns);
+			GetTree().Quit();
+			return;
 		}
 
 		int totalRun = 0;
@@ -184,5 +196,46 @@ public partial class FullSolve : Node
 			GD.Print("Can't record data");
 		}
 		GetTree().Quit();
+	}
+
+	/// <summary>
+	/// Solve every puzzle repeatedly with solved-clue trimming OFF then ON, and report the min/median
+	/// total solve time for each. Compare the mins (most noise-robust); the solved counts must match
+	/// between the two configs — if they don't, the trim has changed correctness.
+	/// </summary>
+	private void RunTrimBenchmark(Puzzle[] puzzles, int repetitions)
+	{
+		GD.Print($"\n=== Solved-clue trim A/B benchmark — {repetitions} runs each ===");
+		BenchmarkConfig("trim OFF", puzzles, repetitions, trim: false);
+		BenchmarkConfig("trim ON", puzzles, repetitions, trim: true);
+		Solver.DPLineSolver.TrimSolvedClues = true; // restore the default
+	}
+
+	private static void BenchmarkConfig(string label, Puzzle[] puzzles, int repetitions, bool trim)
+	{
+		Solver.DPLineSolver.TrimSolvedClues = trim;
+
+		var times = new ulong[repetitions];
+		int solved = 0;
+		for (int r = 0; r < repetitions; r++)
+		{
+			solved = 0;
+			ulong start = Time.Singleton.GetTicksUsec();
+			foreach (Puzzle puzzle in puzzles)
+			{
+				if (puzzle == null)
+					continue;
+
+				puzzle.Reset();
+				var solver = new Solver();
+				solver.Init(puzzle.GridSize);
+				if (solver.Run(puzzle, false).ContainsKey("is_solved"))
+					solved++;
+			}
+			times[r] = Time.Singleton.GetTicksUsec() - start;
+		}
+
+		System.Array.Sort(times);
+		GD.Print($"{label,-9}  min={times[0]} µs  median={times[repetitions / 2]} µs  solved={solved}");
 	}
 }

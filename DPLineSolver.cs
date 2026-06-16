@@ -12,7 +12,15 @@ public partial class Solver
 	/// </summary>
 	internal sealed class DPLineSolver
 	{
-		private readonly int _size;
+		// A/B toggle used by FullSolve's benchmark to compare with / without solved-clue trimming.
+		internal static bool TrimSolvedClues = true;
+
+		private readonly int _capacity; // max line length; fixes the buffer sizes
+
+		// The active window the DP runs over: the line minus any trimmed solved end-clues.
+		private int _size;              // active window length
+		private int _winStart;          // window start, in full-line coordinates
+		private int _clueOffset;        // index of the first active clue in the configured list
 
 		// Reusable scratch, sized to the worst case at construction and never reallocated.
 		private readonly int[] _clues;        // configured clue lengths (_count valid)
@@ -34,6 +42,7 @@ public partial class Solver
 
 		public DPLineSolver(int size)
 		{
+			_capacity = size;
 			_size = size;
 			int maxClues = (size + 1) / 2; // a line of N cells holds at most ceil(N/2) clues
 			_clues = new int[maxClues];
@@ -47,11 +56,49 @@ public partial class Solver
 		/// <summary>Point the solver at a new line. Allocation-free.</summary>
 		public void Configure(uint filled, uint marked, Godot.Collections.Array<Clue> clues)
 		{
-			_filled = filled;
-			_marked = marked;
-			_count = clues.Count;
+			int count = clues.Count;
+
+			int lo = 0;
+			int windowStart = 0;
+			int hi = count - 1;
+			int windowEnd = _capacity; // exclusive
+
+			// Trim contiguous solved clues off each end. A solved clue is pinned and filled, so the
+			// leading/trailing solved clues occupy the extremes; drop them (and their cells) and run
+			// the DP only over the ambiguous middle. Mid-line solved clues are left in — removing
+			// those would split the line, which this windowed form can't represent.
+			if (TrimSolvedClues)
+			{
+				while (lo < count && clues[lo].IsSolved())
+				{
+					int runStart = BitOps.FirstSet(filled, windowStart, _capacity - windowStart);
+					if (runStart < 0)
+						break; // a solved clue must have a filled run; bail rather than mis-trim
+					windowStart = runStart + clues[lo].Value;
+					lo++;
+				}
+
+				while (hi >= lo && clues[hi].IsSolved())
+				{
+					int runEnd = BitOps.LastSet(filled, windowStart, windowEnd - windowStart);
+					if (runEnd < 0)
+						break;
+					windowEnd = runEnd - clues[hi].Value + 1;
+					hi--;
+				}
+			}
+
+			_winStart = windowStart;
+			_clueOffset = lo;
+			_size = windowEnd > windowStart ? windowEnd - windowStart : 0;
+			_count = hi >= lo ? hi - lo + 1 : 0;
+
 			for (int i = 0; i < _count; i++)
-				_clues[i] = clues[i].Value;
+				_clues[i] = clues[lo + i].Value;
+
+			uint windowMask = _size > 0 ? BitOps.FieldMask(_size) : 0u;
+			_filled = (filled >> windowStart) & windowMask;
+			_marked = (marked >> windowStart) & windowMask;
 		}
 
 		/// <summary>
@@ -66,8 +113,8 @@ public partial class Solver
 			ComputeLeftmost();
 			ComputeRightmost();
 
-			forcedFilled = 0;
-			solvedClues = 0;
+			uint filledBits = 0;
+			uint solvedBits = 0;
 			uint covered = 0; // every cell a clue could possibly occupy
 			for (int i = 0; i < _count; i++)
 			{
@@ -82,15 +129,20 @@ public partial class Solver
 
 				int len = _clues[i];
 				if (_rightStarts[i] < _leftStarts[i] + len)
-					forcedFilled |= RangeMask(_rightStarts[i], _leftStarts[i] + len);
+					filledBits |= RangeMask(_rightStarts[i], _leftStarts[i] + len);
 				covered |= RangeMask(_leftStarts[i], _rightStarts[i] + len);
 
 				// a clue with a single possible position is fully determined
 				if (_leftStarts[i] == _rightStarts[i])
-					solvedClues |= 1u << i;
+					solvedBits |= 1u << i;
 			}
 
-			forcedEmpty = RangeMask(0, _size) & ~covered;
+			uint emptyBits = RangeMask(0, _size) & ~covered;
+
+			// shift the window-local results back into full-line / full-clue-list coordinates
+			forcedFilled = filledBits << _winStart;
+			forcedEmpty = emptyBits << _winStart;
+			solvedClues = solvedBits << _clueOffset;
 		}
 
 		private void ComputeLeftmost()
