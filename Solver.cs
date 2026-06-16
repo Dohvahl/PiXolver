@@ -168,9 +168,16 @@ public partial class Solver : RefCounted
 
 		DPLineSolver lineSolver = _tracker.GetLineSolver(iterationDirection, index);
 		lineSolver.Configure(filledCells, markedCells, clues);
-		lineSolver.Deduce(out uint forcedFilled, out uint forcedEmpty);
+		lineSolver.Deduce(out uint forcedFilled, out uint forcedEmpty, out uint solvedClues);
 		puzzle.FillLine(index, fillDirection, forcedFilled);
 		puzzle.SetEmptyCells(index, fillDirection, forcedEmpty);
+
+		// mark any clue that's now pinned to a single position as solved (UI + future passes)
+		for (int i = 0; i < clues.Count; i++)
+		{
+			if ((solvedClues & (1u << i)) != 0)
+				clues[i].MarkSolved();
+		}
 
         if (puzzle.IsLineSolved(index, fillDirection))
 		{

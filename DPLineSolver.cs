@@ -58,13 +58,16 @@ public partial class Solver
 		/// forcedFilled = cells covered by a clue in BOTH extreme placements (the per-clue overlap);
 		/// forcedEmpty = cells covered by NO clue in either extreme. Mid-line completion and the
 		/// join/split boundary marks fall out of forcedEmpty automatically.
+		/// solvedClues = bit i set when clue i is pinned to a single position (leftmost == rightmost),
+		/// i.e. it can only sit in one place and so is fully determined.
 		/// </summary>
-		public void Deduce(out uint forcedFilled, out uint forcedEmpty)
+		public void Deduce(out uint forcedFilled, out uint forcedEmpty, out uint solvedClues)
 		{
 			ComputeLeftmost();
 			ComputeRightmost();
 
 			forcedFilled = 0;
+			solvedClues = 0;
 			uint covered = 0; // every cell a clue could possibly occupy
 			for (int i = 0; i < _count; i++)
 			{
@@ -73,6 +76,7 @@ public partial class Solver
 					// unsatisfiable line (shouldn't happen for a valid puzzle); deduce nothing
 					forcedFilled = 0;
 					forcedEmpty = 0;
+					solvedClues = 0;
 					return;
 				}
 
@@ -80,6 +84,10 @@ public partial class Solver
 				if (_rightStarts[i] < _leftStarts[i] + len)
 					forcedFilled |= RangeMask(_rightStarts[i], _leftStarts[i] + len);
 				covered |= RangeMask(_leftStarts[i], _rightStarts[i] + len);
+
+				// a clue with a single possible position is fully determined
+				if (_leftStarts[i] == _rightStarts[i])
+					solvedClues |= 1u << i;
 			}
 
 			forcedEmpty = RangeMask(0, _size) & ~covered;
