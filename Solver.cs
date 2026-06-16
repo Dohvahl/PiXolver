@@ -126,12 +126,16 @@ public partial class Solver : RefCounted
 
 		// the current row/column may have been solved by previous iterations,
 		// so we should check it before we try to do any work to it
-		if (IsLineSolved(puzzle, index, iterationDirection))
+		if (!_tracker.IsSolved(iterationDirection, index) && IsLineSolved(puzzle, index, iterationDirection))
 		{
 			_tracker.MarkSolved(iterationDirection, index);
 
-			// ensure the empty cells are marked
-			puzzle.MarkEmptyCells(index, fillDirection);
+			// mark the clues as solved
+			foreach (var clue in clues)
+				clue.MarkSolved();
+
+            // ensure the empty cells are marked
+            puzzle.MarkEmptyCells(index, fillDirection);
 			return true;
 		}
 
