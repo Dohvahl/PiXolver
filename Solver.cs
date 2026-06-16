@@ -1,6 +1,5 @@
 using Godot;
 using System;
-using System.Linq;
 
 /// <summary>
 /// Nonogram solver. Technique names are taken from the Nonogram wiki:
@@ -189,8 +188,8 @@ public partial class Solver : RefCounted
 		//	(lo, hi) = (hi, lo);
 		//}
 
-		int[] clueValues = clues.Select(c => c.Value).ToArray();
-		var lineSolver = new DPLineSolver(gridSize, filledCells, markedCells, clueValues);
+		DPLineSolver lineSolver = _tracker.GetLineSolver(iterationDirection, index);
+		lineSolver.Configure(filledCells, markedCells, clues);
 		lineSolver.Deduce(out uint forcedFilled, out uint forcedEmpty);
 		puzzle.FillLine(index, fillDirection, forcedFilled);
 		puzzle.SetEmptyCells(index, fillDirection, forcedEmpty);
@@ -631,12 +630,17 @@ public partial class Solver : RefCounted
 		private uint[] _previousFilled = Array.Empty<uint>();
 		private uint[] _previousMarked = Array.Empty<uint>();
 
+		// one reusable line solver per row and per column, cached so we don't allocate one per call
+		private DPLineSolver[] _rowSolvers = Array.Empty<DPLineSolver>();
+		private DPLineSolver[] _columnSolvers = Array.Empty<DPLineSolver>();
+
 		public void Init(int size)
 		{
 			gridSize = size;
 			ResizeLargestClues(size);
 			ResizeUnsolvedClues(size);
 			ResizeState(size);
+			ResizeLineSolvers(size);
 		}
 
 		public void Reset()
@@ -651,6 +655,7 @@ public partial class Solver : RefCounted
 			ResizeUnsolvedClues(gridSize);
 			ResizeLargestClues(gridSize);
 			ResizeState(gridSize);
+			ResizeLineSolvers(gridSize);
 		}
 
 		public void ResizeLargestClues(int size)
@@ -680,6 +685,26 @@ public partial class Solver : RefCounted
 				_previousFilled = new uint[size];
 			if (_previousMarked.Length != size)
 				_previousMarked = new uint[size];
+		}
+
+		public void ResizeLineSolvers(int size)
+		{
+			if (_rowSolvers.Length == size)
+				return; // already sized; keep the cached instances
+
+			_rowSolvers = new DPLineSolver[size];
+			_columnSolvers = new DPLineSolver[size];
+			for (int i = 0; i < size; i++)
+			{
+				_rowSolvers[i] = new DPLineSolver(size);
+				_columnSolvers[i] = new DPLineSolver(size);
+			}
+		}
+
+		/// <summary>The cached line solver for a given row (Down) or column (Right).</summary>
+		public DPLineSolver GetLineSolver(Vector2I iterDirection, int index)
+		{
+			return iterDirection == Vector2I.Down ? _rowSolvers[index] : _columnSolvers[index];
 		}
 
 		/// <summary>Snapshot the puzzle's current grid (per-row filled/marked bitmasks).</summary>
