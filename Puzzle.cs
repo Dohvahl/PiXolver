@@ -233,7 +233,7 @@ public partial class Puzzle : RefCounted
         while (offset + i < GridSize)
         {
             if ((value & (1u << i)) != 0)
-                EmptyCell(index, offset + i);
+                MarkCell(new Vector2I(index, offset + i));
             i += 1;
         }
     }
@@ -244,7 +244,7 @@ public partial class Puzzle : RefCounted
 		while (offset + i < GridSize)
 		{
 			if ((value & (1u << i)) != 0)
-				EmptyCell(offset + i, index);
+				MarkCell(new Vector2I(offset + i, index));
 			i += 1;
 		}
     }
@@ -399,12 +399,12 @@ public partial class Puzzle : RefCounted
 	public bool IsRowSolved(int i)
 	{
 		// the solution carries no marks, so a solved line is correctly filled and unmarked
-		return RowFilled(i) == SolutionRowFilled(i) && RowMarked(i) == 0;
+		return RowFilled(i) == SolutionRowFilled(i);
 	}
 
 	public bool IsColumnSolved(int i)
 	{
-		return ColumnFilled(i) == SolutionColumnFilled(i) && ColumnMarked(i) == 0;
+		return ColumnFilled(i) == SolutionColumnFilled(i);
 	}
 
 	// Accessors for the solver (same assembly), so it doesn't reach into the grid directly.

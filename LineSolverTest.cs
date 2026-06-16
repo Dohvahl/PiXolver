@@ -2,7 +2,7 @@ using Godot;
 using System.Text;
 
 /// <summary>
-/// THROWAWAY harness for the experimental <see cref="Solver.LineSolver"/>. Run this scene (select
+/// THROWAWAY harness for the experimental <see cref="Solver.DPLineSolver"/>. Run this scene (select
 /// line_solver_test.tscn and press F6) to print each hand-built line and its deductions.
 /// Bit 0 is the leftmost cell, matching the solver's <c>1u &lt;&lt; pos</c> convention, so the binary
 /// literals below read right-to-left relative to the rendered lines.
@@ -28,7 +28,7 @@ public partial class LineSolverTest : Node
 
 	private static bool RunCase(string name, int size, int[] clues, uint filled, uint marked, uint expFill, uint expEmpty)
 	{
-		var line = new Solver.LineSolver(size, filled, marked, clues);
+		var line = new Solver.DPLineSolver(size, filled, marked, clues);
 		int[] left = line.Leftmost();
 		int[] right = line.Rightmost();
 		line.Deduce(out uint fill, out uint empty);

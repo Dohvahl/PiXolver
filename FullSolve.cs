@@ -72,7 +72,7 @@ public partial class FullSolve : Node
 			if (puzzle == null)
 				continue;
 
-			GD.Print($"Begin Solving Puzzle {puzzle.PuzzleFile}");
+			//GD.Print($"Begin Solving Puzzle {puzzle.PuzzleFile}");
 
 			// set up the solver
 			var solver = new Solver();
