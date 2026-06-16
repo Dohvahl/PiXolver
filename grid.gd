@@ -165,6 +165,10 @@ func _draw_row_clues() -> void:
 					Vector2(CELL_SIZE, CELL_SIZE)
 				)
 				draw_rect(clue_rect, clue_color, false, 1.0)
+
+				var horz_line_size = 3 if row_index % 5 == 0 else 1
+				draw_line(clue_rect.position, clue_rect.position + (Vector2.RIGHT * CELL_SIZE * grid_size), clue_color, horz_line_size)
+
 #endregion DEBUG
 			i += 1
 
@@ -200,6 +204,8 @@ func _draw_column_clues() -> void:
 					Vector2i(CELL_SIZE, CELL_SIZE)
 				)
 				draw_rect(clue_rect, clue_color, false, 1.0)
+				var vert_line_size = 3 if col_index % 5 == 0 else 1
+				draw_line(clue_rect.position, clue_rect.position + (Vector2.DOWN * CELL_SIZE * grid_size), clue_color, vert_line_size)
 #endregion DEBUG
 			i += 1
 
