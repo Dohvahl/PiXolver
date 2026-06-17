@@ -37,6 +37,12 @@ public partial class Puzzle : RefCounted
 	public int MaxRowClues { get; private set; }
 	public int MaxColumnClues { get; private set; }
 
+	// True when built from a known solution (IsRowSolved/IsColumnSolved compare against it). False for
+	// clues-only puzzles, where "solved" means the line's filled runs match its clues.
+	private bool _hasSolution;
+
+	public bool HasSolution => _hasSolution;
+
 	public Puzzle()
 	{
 	}
@@ -45,6 +51,7 @@ public partial class Puzzle : RefCounted
 	{
 		PuzzleFile = puzzleFile;
 		GridSize = gridSize;
+		_hasSolution = true;
 
 		_grid = new CellState[gridSize, gridSize];
 		_solution = new bool[gridSize, gridSize];
@@ -62,6 +69,79 @@ public partial class Puzzle : RefCounted
 
 		// add clues to the top and left side of the puzzle
 		SetupClues();
+	}
+
+	/// <summary>
+	/// Build a clues-only puzzle (no known solution) from text in the format:
+	/// <c>x y</c> on the first line, then x lines of row clues, then y lines of column clues. Each
+	/// clue line is whitespace-separated positive integers; a blank line (or a lone 0) means no clues.
+	/// Only square puzzles (x == y) are supported.
+	/// </summary>
+	public void InitializeFromClues(string puzzleFile, string cluesText)
+	{
+		PuzzleFile = puzzleFile;
+		_hasSolution = false;
+		MaxRowClues = 0;
+		MaxColumnClues = 0;
+
+		string[] lines = cluesText.Split('\n').Select(s => s.StripEdges()).ToArray();
+
+		// the first non-empty line is the "x y" header
+		int cursor = 0;
+		while (cursor < lines.Length && lines[cursor].Length == 0)
+			cursor++;
+
+		string[] dims = lines[cursor].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+		cursor++;
+		int x = int.Parse(dims[0]);
+		int y = dims.Length > 1 ? int.Parse(dims[1]) : x;
+		if (x != y)
+			GD.PushWarning($"Clues file '{puzzleFile}' is non-square ({x}x{y}); only square puzzles are supported, using {x}.");
+
+		int gridSize = x;
+		GridSize = gridSize;
+		_grid = new CellState[gridSize, gridSize];
+		_solution = new bool[gridSize, gridSize]; // unused for clues-only; kept non-null for safety
+		_rowClues = new ClueLine[gridSize];
+		_columnClues = new ClueLine[gridSize];
+		for (int i = 0; i < gridSize; i++)
+		{
+			_rowClues[i] = new ClueLine();
+			_columnClues[i] = new ClueLine();
+		}
+
+		// x lines of row clues, then y (== x) lines of column clues
+		for (int row = 0; row < gridSize; row++)
+			MaxRowClues = Math.Max(MaxRowClues, ParseClueLine(lines, ref cursor, _rowClues[row]));
+
+		for (int col = 0; col < gridSize; col++)
+			MaxColumnClues = Math.Max(MaxColumnClues, ParseClueLine(lines, ref cursor, _columnClues[col]));
+	}
+
+	// Parses one whitespace-separated clue line into the target; returns the number of clues recorded.
+	private static int ParseClueLine(string[] lines, ref int cursor, ClueLine target)
+	{
+		if (cursor >= lines.Length)
+		{
+			cursor++;
+			return 0;
+		}
+
+		string line = lines[cursor];
+		cursor++;
+		if (line.Length == 0)
+			return 0;
+
+		int count = 0;
+		foreach (string token in line.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+		{
+			if (int.TryParse(token, out int value) && value > 0)
+			{
+				target.RecordClue(0, 0, value); // start position is unknown for clues-only puzzles
+				count++;
+			}
+		}
+		return count;
 	}
 
 	public void Reset()
@@ -399,13 +479,16 @@ public partial class Puzzle : RefCounted
 
 	public bool IsRowSolved(int i)
 	{
-		// the solution carries no marks, so a solved line is correctly filled and unmarked
-		return RowFilled(i) == SolutionRowFilled(i);
+		if (_hasSolution)
+			return RowFilled(i) == SolutionRowFilled(i);
+		return LineMatchesClues(RowFilled(i), _rowClues[i]);
 	}
 
 	public bool IsColumnSolved(int i)
 	{
-		return ColumnFilled(i) == SolutionColumnFilled(i);
+		if (_hasSolution)
+			return ColumnFilled(i) == SolutionColumnFilled(i);
+		return LineMatchesClues(ColumnFilled(i), _columnClues[i]);
 	}
 
 	// Accessors for the solver (same assembly), so it doesn't reach into the grid directly.
@@ -485,6 +568,35 @@ public partial class Puzzle : RefCounted
 		return bits;
 	}
 
+	/// <summary>True if the line's maximal filled runs exactly match the clue values, in order.</summary>
+	private bool LineMatchesClues(uint filled, ClueLine clueLine)
+	{
+		Godot.Collections.Array<Clue> clues = clueLine.Clues;
+		int clueIndex = 0;
+		int runLength = 0;
+		for (int i = 0; i < GridSize; i++)
+		{
+			if ((filled & (1u << i)) != 0)
+			{
+				runLength++;
+			}
+			else if (runLength > 0)
+			{
+				if (clueIndex >= clues.Count || clues[clueIndex].Value != runLength)
+					return false;
+				clueIndex++;
+				runLength = 0;
+			}
+		}
+		if (runLength > 0)
+		{
+			if (clueIndex >= clues.Count || clues[clueIndex].Value != runLength)
+				return false;
+			clueIndex++;
+		}
+		return clueIndex == clues.Count;
+	}
+
 	// --- Single-cell writes (the one place cell state changes) ---
 
 	private void SetFilled(int x, int y)
@@ -521,7 +633,10 @@ public partial class Puzzle : RefCounted
 				continue;
 
 			for (int index = 0; index < rowState.Length; index++)
-				_solution[index, row] = rowState[index] == '1';
+			{
+				System.Diagnostics.Debug.Assert(index < _solution.GetLength(0) && row < _solution.GetLength(1), $"Either {index} or {row} are outside the bounds of {GridSize} in puzzle {PuzzleFile}");
+                _solution[index, row] = rowState[index] == '1';
+			}
 			
 			row += 1;
 		}

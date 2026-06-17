@@ -42,8 +42,19 @@ public partial class FullSolve : Node
 				continue;
 			}
 
+			string text = samplePuzzle.GetAsText();
+			if (string.IsNullOrEmpty(text))
+				continue;
+
+			// A clues-only file starts with an "x y" header; a solution file starts with a row of 0/1s.
 			var puzzle = new Puzzle();
-			puzzle.Initialize(samplePuzzle.GetPath(), 30, samplePuzzle.GetAsText());
+			string firstLine = text.Split('\n')[0].Trim();
+			string[] header = firstLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+			if (header.Length == 2 && int.TryParse(header[0], out _) && int.TryParse(header[1], out _))
+				continue;
+			else
+				puzzle.Initialize(samplePuzzle.GetPath(), firstLine.Length, text);
+
 			samplePuzzles[i] = puzzle;
 			i += 1;
 		}
@@ -110,7 +121,7 @@ public partial class FullSolve : Node
 
 				totalSolved++;
 			}
-			else
+			else if (puzzle.HasSolution)
 			{
 				double pctFilled = results.TryGetValue("filled", out Variant filledValue) ? filledValue.AsDouble() : 0.0;
 				double pctSolved = results.TryGetValue("solved", out Variant solvedValue) ? solvedValue.AsDouble() : 0.0;

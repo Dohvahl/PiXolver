@@ -41,7 +41,8 @@ public partial class Solver : RefCounted
 		}
 		double elapsedMicroseconds = Stopwatch.GetElapsedTime(runStart).TotalMicroseconds;
 
-		GD.Print($"Total Solve Time: {elapsedMicroseconds:F1} microsec");
+		if (debug)
+			GD.Print($"Total Solve Time: {elapsedMicroseconds:F1} microsec");
 
 		var results = new Godot.Collections.Dictionary
 		{
@@ -53,7 +54,7 @@ public partial class Solver : RefCounted
 		{
 			results["is_solved"] = true;
 		}
-		else
+		else if (puzzle.HasSolution)
 		{
 			// get some stats on the state of the puzzle
 			int correct = 0;

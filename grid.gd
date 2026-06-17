@@ -58,11 +58,17 @@ func _ready() -> void:
 	if (initial_state.is_empty()):
 		return
 
-	var first_line = initial_state.split("\n")[0].strip_edges()
-	grid_size = first_line.length()
-
 	puzzle = Puzzle.new()
-	puzzle.Initialize(puzzle_file.get_path(), grid_size, initial_state)
+
+	# A clues-only file starts with an "x y" dimensions header; a solution file starts with a row of 0/1s.
+	var first_line = initial_state.split("\n")[0].strip_edges()
+	var header = first_line.split(" ", false)
+	if header.size() == 2 and header[0].is_valid_int() and header[1].is_valid_int():
+		puzzle.InitializeFromClues(puzzle_file.get_path(), initial_state)
+	else:
+		puzzle.Initialize(puzzle_file.get_path(), first_line.length(), initial_state)
+
+	grid_size = puzzle.GridSize
 
 	#print("puzzle=", puzzle, " maxRowClues=", puzzle.MaxRowClues, " maxColumnClues=", puzzle.MaxColumnClues)
 
@@ -117,11 +123,14 @@ func _input(event: InputEvent) -> void:
 		if results.get("is_solved"):
 			print("Solved!")
 			print("Solve Time: ", results.get("time_us"), " microseconds")
-		else:
+		elif results.has("filled"):
 			print("\n")
 			print("Percent Correctly Filled: %.2f%%" % (float(results.get("filled")) * 100))
 			print("Percent Correct: %.2f%%" % (float(results.get("solved")) * 100))
 			print("Incorrect Cells: %d/%d" % [int(results.get("incorrect")), puzzle.GridSize * puzzle.GridSize])
+		else:
+			# clues-only puzzle: no known solution to score against
+			print("Not fully solved (clues-only puzzle). Solve Time: ", results.get("time_us"), " microseconds")
 		queue_redraw()
 	elif event.is_action_pressed("run_solver_single"):
 		if (!solver.RunSingle(puzzle, iterations, debug)):
