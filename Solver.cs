@@ -9,7 +9,7 @@ using System;
 public partial class Solver : RefCounted
 {
 	[Export]
-	public int MaxIterations { get; set; } = 20;
+	public int MaxIterations { get; set; } = 50;
 
 	private SolverData _tracker;
 
@@ -168,7 +168,7 @@ public partial class Solver : RefCounted
 
 		DPLineSolver lineSolver = _tracker.GetLineSolver(iterationDirection, index);
 		lineSolver.Configure(filledCells, markedCells, clues);
-		lineSolver.Deduce(out uint forcedFilled, out uint forcedEmpty, out uint solvedClues);
+		lineSolver.DeduceComplete(out uint forcedFilled, out uint forcedEmpty, out uint solvedClues);
 		puzzle.FillLine(index, fillDirection, forcedFilled);
 		puzzle.SetEmptyCells(index, fillDirection, forcedEmpty);
 

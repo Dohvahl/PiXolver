@@ -24,11 +24,14 @@ public partial class Solver
 
 		// Reusable scratch, sized to the worst case at construction and never reallocated.
 		private readonly int[] _clues;        // configured clue lengths (_count valid)
-		private readonly int[] _reversed;      // reversed clue lengths (rightmost pass)
+		private readonly int[] _reversedClues;      // reversed clue lengths (rightmost pass)
 		private readonly int[] _leftStarts;
 		private readonly int[] _rightStarts;
 		private readonly int[] _mirrorStarts;
-		private readonly sbyte[,] _feasible;   // memo: -1 unknown, 0 no, 1 yes; indexed [clue, cell]
+		
+		// memos: -1 unknown, 0 no, 1 yes; indexed [clue, cell]
+		private readonly sbyte[,] _suffixFeasible;   
+		private readonly sbyte[,] _prefixFeasible; 
 
 		// The configured line.
 		private uint _filled;
@@ -46,11 +49,12 @@ public partial class Solver
 			_size = size;
 			int maxClues = (size + 1) / 2; // a line of N cells holds at most ceil(N/2) clues
 			_clues = new int[maxClues];
-			_reversed = new int[maxClues];
+			_reversedClues = new int[maxClues];
 			_leftStarts = new int[maxClues];
 			_rightStarts = new int[maxClues];
 			_mirrorStarts = new int[maxClues];
-			_feasible = new sbyte[maxClues + 1, size + 1];
+			_suffixFeasible = new sbyte[maxClues + 1, size + 1];
+			_prefixFeasible = new sbyte[maxClues + 1, size + 1];
 		}
 
 		/// <summary>Point the solver at a new line. Allocation-free.</summary>
@@ -145,6 +149,51 @@ public partial class Solver
 			solvedClues = solvedBits << _clueOffset;
 		}
 
+        public void DeduceComplete(out uint forcedFilled, out uint forcedEmpty, out uint solvedClues)
+        {
+            SetActive(_filled, _marked, _clues);   // forward line; clears + primes both memos
+
+            // everFilled: cells some feasible placement covers. Also count starts per clue.
+            uint everFilled = 0;
+            solvedClues = 0;
+            for (int i = 0; i < _count; i++)
+            {
+                int len = _clues[i];
+                int feasibleStarts = 0;
+                for (int s = 0; s + len <= _size; s++)
+                {
+                    if (Fits(s, len) && PrefixFeasible(i, s - 1) && SuffixFeasible(i + 1, s + len + 1))
+                    {
+                        everFilled |= RangeMask(s, s + len);
+                        feasibleStarts++;
+                    }
+                }
+                if (feasibleStarts == 1)
+                    solvedClues |= 1u << i;   // exactly one place to go → pinned
+            }
+
+            // everEmpty: cells that can be a gap in some valid arrangement (split before clue i, cell p empty)
+            uint everEmpty = 0;
+            for (int p = 0; p < _size; p++)
+            {
+                if (FilledAt(p))
+                    continue; // a filled cell is never empty
+                for (int i = 0; i <= _count; i++)
+                {
+                    if (PrefixFeasible(i, p) && SuffixFeasible(i, p + 1))
+                    {
+                        everEmpty |= 1u << p;
+                        break;
+                    }
+                }
+            }
+
+            // shift the window-local results back into full-line / full-clue-list coordinates
+            forcedFilled = (everFilled & ~everEmpty) << _winStart;            // filled in some arrangement, empty in none → in all
+            forcedEmpty = (RangeMask(0, _size) & ~everFilled) << _winStart;   // no clue ever covers it → empty in all
+            solvedClues <<= _clueOffset;
+        }
+        
 		private void ComputeLeftmost()
 		{
 			SetActive(_filled, _marked, _clues);
@@ -154,9 +203,9 @@ public partial class Solver
 		private void ComputeRightmost()
 		{
 			for (int i = 0; i < _count; i++)
-				_reversed[i] = _clues[_count - 1 - i];
+				_reversedClues[i] = _clues[_count - 1 - i];
 
-			SetActive(Reverse(_filled), Reverse(_marked), _reversed);
+			SetActive(Reverse(_filled), Reverse(_marked), _reversedClues);
 			Solve(_mirrorStarts);
 
 			for (int i = 0; i < _count; i++)
@@ -172,8 +221,13 @@ public partial class Solver
 			_activeMarked = marked;
 			_activeClues = clues;
 			for (int i = 0; i <= _count; i++)
+			{
 				for (int p = 0; p <= _size; p++)
-					_feasible[i, p] = -1;
+				{
+					_suffixFeasible[i, p] = -1;
+					_prefixFeasible[i, p] = -1;
+				}
+			}
 		}
 
 		/// <summary>Leftmost reconstruction over the active line; writes a start per clue (-1 if unsatisfiable).</summary>
@@ -184,7 +238,7 @@ public partial class Solver
 			{
 				int len = _activeClues[i];
 				int p = cursor;
-				while (!(Fits(p, len) && Feasible(i + 1, p + len + 1)))
+				while (!(Fits(p, len) && SuffixFeasible(i + 1, p + len + 1)))
 				{
 					if (FilledAt(p) || p >= _size) // can't skip a filled cell, or ran off the end
 					{
@@ -199,27 +253,53 @@ public partial class Solver
 			}
 		}
 
+        /// <summary>Are clue[..i] placeable within cells [0,p), covering all filled cells there?</summary>
+        private bool PrefixFeasible(int i, int p)
+        {
+            if (i == 0)
+                return (_activeFilled & RangeMask(0, p)) == 0;
+            if (p < 0)
+                return false;
+            if (_prefixFeasible[i, p] != -1)
+                return _prefixFeasible[i, p] == 1;
+
+            int clue = _activeClues[i - 1];   // the last of the first i clues
+            bool result = false;
+
+            // option A: leave the last cell of [0,p), which is p-1, empty
+            if (!FilledAt(p - 1))
+                result = PrefixFeasible(i, p - 1);
+
+            // option B: clue i-1 occupies [p-clue, p) (ends at p-1); gap sits at p-clue-1
+            if (!result && Fits(p - clue, clue))
+                result = PrefixFeasible(i - 1, p - clue - 1);
+
+            _prefixFeasible[i, p] = (sbyte)(result ? 1 : 0);
+            return result;
+        }		
+		
 		/// <summary>Are clues[i..] placeable within cells [p, size), covering all filled cells there?</summary>
-		private bool Feasible(int i, int p)
+		private bool SuffixFeasible(int i, int p)
 		{
 			if (i == _count)
-				return (_activeFilled & RangeMask(p, _size)) == 0; // no clues left → nothing may be filled
+                // no clues left to check, so just verify no filled cells remain at the end of the line
+                return (_activeFilled & RangeMask(p, _size)) == 0;
 			if (p > _size)
 				return false;
-			if (_feasible[i, p] != -1)
-				return _feasible[i, p] == 1;
+			if (_suffixFeasible[i, p] != -1)
+				return _suffixFeasible[i, p] == 1;
 
 			bool result = false;
 			if (p < _size && !FilledAt(p))                 // option A: leave cell p empty
-				result = Feasible(i, p + 1);
+				result = SuffixFeasible(i, p + 1);
 			if (!result && Fits(p, _activeClues[i]))       // option B: start clue i at p, gap, then the rest
-				result = Feasible(i + 1, p + _activeClues[i] + 1);
+				result = SuffixFeasible(i + 1, p + _activeClues[i] + 1);
 
-			_feasible[i, p] = (sbyte)(result ? 1 : 0);
+			_suffixFeasible[i, p] = (sbyte)(result ? 1 : 0);
 			return result;
 		}
 
-		/// <summary>Can a clue of <paramref name="len"/> sit exactly at [start, start+len)?</summary>
+		/// <summary>Can a clue of <paramref name="len"/> sit exactly at [start, start+clue)?</summary>
 		private bool Fits(int start, int len)
 		{
 			if (start < 0 || start + len > _size)
