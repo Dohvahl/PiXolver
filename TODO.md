@@ -17,6 +17,7 @@
 - [x] check for "completed clue" while glueing
 - [x] maybe account for marked cells when using SB
 	- have to be careful about actual filling though
+- [ ] lookup/guess after LineSolve
 
 # CLEANUP
 - [ ] refactor `get_array_bounds` to share code
