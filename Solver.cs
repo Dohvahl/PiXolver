@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Diagnostics;
 
 /// <summary>
 /// Nonogram solver. Technique names are taken from the Nonogram wiki:
@@ -32,13 +33,21 @@ public partial class Solver : RefCounted
 	{
 		// run the solver until the puzzle is solved, but to keep it from getting
 		// into an infinite loop, we cap the number of iterations
+		long runStart = Stopwatch.GetTimestamp();
 		int iterations = 1;
 		while (iterations - 1 < MaxIterations && RunSingle(puzzle, iterations, debug))
 		{
 			iterations++;
 		}
+		double elapsedMicroseconds = Stopwatch.GetElapsedTime(runStart).TotalMicroseconds;
 
-		var results = new Godot.Collections.Dictionary { { "iterations", iterations } };
+		GD.Print($"Total Solve Time: {elapsedMicroseconds:F1} microsec");
+
+		var results = new Godot.Collections.Dictionary
+		{
+			{ "iterations", iterations },
+			{ "time_us", elapsedMicroseconds },
+		};
 
 		if (puzzle.IsSolved())
 		{
@@ -76,27 +85,25 @@ public partial class Solver : RefCounted
 			GD.Print($"\n*** DEBUG *** Iteration {iterations} *** DEBUG ***");
 
 		// measure how long the preprocessing takes
-		ulong preprocessStart = Time.Singleton.GetTicksUsec();
+		long preprocessStart = Stopwatch.GetTimestamp();
 
 		int gridSize = puzzle.GridSize;
 
 		// snapshot the grid so we can tell whether this iteration makes any progress
 		_tracker.SaveState(puzzle);
 
-		ulong preprocessEnd = Time.Singleton.GetTicksUsec();
 		if (debug)
-			GD.Print($"PreProcess Time: {preprocessEnd - preprocessStart} microsec");
+			GD.Print($"PreProcess Time: {Stopwatch.GetElapsedTime(preprocessStart).TotalMicroseconds:F1} microsec");
 
 		// measuring the time to solve the puzzle
-		ulong solutionStart = Time.Singleton.GetTicksUsec();
+		long solutionStart = Stopwatch.GetTimestamp();
 
 		// check each set of row and column clues
 		RunRows(puzzle);
 		RunColumns(puzzle);
 
-		ulong solutionEnd = Time.Singleton.GetTicksUsec();
 		if (debug)
-			GD.Print($"Solution Time: {solutionEnd - solutionStart} microsec");
+			GD.Print($"Solution Time: {Stopwatch.GetElapsedTime(solutionStart).TotalMicroseconds:F1} microsec");
 
 		// if this iteration didn't change the state of the puzzle, we're not improving the
 		// solution, so there's no point in continuing

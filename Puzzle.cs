@@ -1,5 +1,6 @@
 using Godot;
 using System;
+using System.Linq;
 
 /// <summary>
 /// Data representation of a nonogram puzzle: the playing field, the solution, and the derived clues.
@@ -513,14 +514,15 @@ public partial class Puzzle : RefCounted
 		int row = 0;
 
 		// iterate over each row state
-		string[] rowStates = solvedState.Split('\n');
+		string[] rowStates = solvedState.Split('\n').Select(s => s.StripEdges()).ToArray();
 		foreach (string rowState in rowStates)
 		{
+			if (string.IsNullOrEmpty(rowState))
+				continue;
+
 			for (int index = 0; index < rowState.Length; index++)
-			{
-				if (rowState[index] == '1')
-					_solution[index, row] = true;
-			}
+				_solution[index, row] = rowState[index] == '1';
+			
 			row += 1;
 		}
 	}
@@ -562,6 +564,7 @@ public partial class Puzzle : RefCounted
 				MaxRowClues = currentMax;
 		}
 
+		currentMax = 0;
 		// figure out column clues
 		for (int col = 0; col < GridSize; col++)
 		{

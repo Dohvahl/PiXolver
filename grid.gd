@@ -14,7 +14,7 @@ extends Control
 		queue_redraw()
 var puzzle : Puzzle							# data representation of the puzzle
 
-@export_range(1, 5000) var puzzle_number : int = 1
+@export var puzzle_number : int = 1
 const SAMPLE_PUZZLES_PATH := "res://SamplePuzzles/rand"
 
 var _total_width							# grid width + row clues area width
@@ -45,16 +45,26 @@ var solved := false
 # initial state is a string representing the solved puzzle
 var initial_state: String
 
-var grid_size := 30
+var grid_size : int
 func _ready() -> void:
+	offset_right = 0.0
+	offset_bottom = 0.0
+
 	# get the puzzle from the available samples
 	var file_path = SAMPLE_PUZZLES_PATH + str(puzzle_number)
 	var puzzle_file := FileAccess.open(file_path,FileAccess.READ)
 	assert(puzzle_file, "Failed to open sample puzzle %d: '%s'" % [puzzle_number, FileAccess.get_open_error()])
 	initial_state = puzzle_file.get_as_text()
+	if (initial_state.is_empty()):
+		return
+
+	var first_line = initial_state.split("\n")[0].strip_edges()
+	grid_size = first_line.length()
 
 	puzzle = Puzzle.new()
 	puzzle.Initialize(puzzle_file.get_path(), grid_size, initial_state)
+
+	#print("puzzle=", puzzle, " maxRowClues=", puzzle.MaxRowClues, " maxColumnClues=", puzzle.MaxColumnClues)
 
 	_total_width = CELL_SIZE * (puzzle.MaxRowClues + grid_size)
 	_total_height = CELL_SIZE * (puzzle.MaxColumnClues + grid_size)
@@ -106,6 +116,7 @@ func _input(event: InputEvent) -> void:
 		var results = solver.Run(puzzle, debug)
 		if results.get("is_solved"):
 			print("Solved!")
+			print("Solve Time: ", results.get("time_us"), " microseconds")
 		else:
 			print("\n")
 			print("Percent Correctly Filled: %.2f%%" % (float(results.get("filled")) * 100))

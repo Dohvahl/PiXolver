@@ -1,7 +1,8 @@
 using Godot;
+using System;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Linq.Expressions;
 
 /// <summary>
 /// Headless benchmark harness: loads the sample puzzles, runs the solver against each, prints
@@ -80,7 +81,7 @@ public partial class FullSolve : Node
 
 
         int totalCells = 900;
-		ulong startTime = Time.Singleton.GetTicksUsec();
+		long startTime = Stopwatch.GetTimestamp();
 		for (int puzzleIndex = 0; puzzleIndex < samplePuzzles.Length; puzzleIndex++)
 		{
 			Puzzle puzzle = samplePuzzles[puzzleIndex];
@@ -149,7 +150,7 @@ public partial class FullSolve : Node
 
 			totalRun += 1;
 		}
-		ulong endTime = Time.Singleton.GetTicksUsec();
+		double elapsedMicroseconds = Stopwatch.GetElapsedTime(startTime).TotalMicroseconds;
 
 		if (totalRun <= 0)
 		{
@@ -164,9 +165,9 @@ public partial class FullSolve : Node
 
 		GD.Print($"Solved {totalSolved} of {totalRun} puzzles");
 		GD.Print($"Solved Puzzles:[\n{string.Join("\n", solvedPuzzles.Where(p => p > 0))}]");
-		GD.Print($"Total Solve Time: {endTime - startTime} microsecs");
+		GD.Print($"Total Solve Time: {elapsedMicroseconds:F1} microsecs");
 
-		GD.Print($"Average solve time: {(double)(endTime - startTime) / totalRun:F2} microsecs");
+		GD.Print($"Average solve time: {elapsedMicroseconds / totalRun:F2} microsecs");
 
 		GD.Print($"\nMin Correctly Filled Cells: {minCorFillPct * 100:F2}%, Puzzle - {minCorFillPuzzle}");
 		GD.Print($"Max Correctly Filled Cells: {maxCorFillPct * 100:F2}%, Puzzle - {maxCorFillPuzzle}");
@@ -190,11 +191,11 @@ public partial class FullSolve : Node
 			string line = string.Format(
 				CultureInfo.InvariantCulture,
 				"{0},{1},{2},{3},{4:F2},{5:F5},{6:F5},{7:F5},{8:F5},{9:F5},{10:F5},{11},{12},{13}",
-				Time.Singleton.GetDatetimeStringFromSystem(),
+				DateTime.Now.ToString("s"),
 				totalRun,
 				totalSolved,
-				endTime - startTime,
-				(double)(endTime - startTime) / totalRun,
+				(long)elapsedMicroseconds,
+				elapsedMicroseconds / totalRun,
 				minCorFillPct,
 				maxCorFillPct,
 				avgCorFillPct,
@@ -230,12 +231,12 @@ public partial class FullSolve : Node
 	{
 		Solver.DPLineSolver.TrimSolvedClues = trim;
 
-		var times = new ulong[repetitions];
+		var times = new double[repetitions];
 		int solved = 0;
 		for (int r = 0; r < repetitions; r++)
 		{
 			solved = 0;
-			ulong start = Time.Singleton.GetTicksUsec();
+			long start = Stopwatch.GetTimestamp();
 			foreach (Puzzle puzzle in puzzles)
 			{
 				if (puzzle == null)
@@ -247,10 +248,10 @@ public partial class FullSolve : Node
 				if (solver.Run(puzzle, false).ContainsKey("is_solved"))
 					solved++;
 			}
-			times[r] = Time.Singleton.GetTicksUsec() - start;
+			times[r] = Stopwatch.GetElapsedTime(start).TotalMicroseconds;
 		}
 
 		System.Array.Sort(times);
-		GD.Print($"{label,-9}  min={times[0]} µs  median={times[repetitions / 2]} µs  solved={solved}");
+		GD.Print($"{label,-9}  min={times[0]:F1} µs  median={times[repetitions / 2]:F1} µs  solved={solved}");
 	}
 }
