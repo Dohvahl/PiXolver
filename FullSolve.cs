@@ -1,5 +1,6 @@
 using Godot;
 using System.Globalization;
+using System.Linq;
 using System.Linq.Expressions;
 
 /// <summary>
@@ -55,6 +56,7 @@ public partial class FullSolve : Node
 
 		int totalRun = 0;
 		int totalSolved = 0;
+		int[] solvedPuzzles = new int[samplePuzzles.Length];
 
 
 		// stats on correctly filled cells. This doesn't account for "over filled" states
@@ -76,7 +78,8 @@ public partial class FullSolve : Node
 		double maxDiff = double.NegativeInfinity;
 		double avgDiff = 0.0;
 
-		int totalCells = 900;
+
+        int totalCells = 900;
 		ulong startTime = Time.Singleton.GetTicksUsec();
 		for (int puzzleIndex = 0; puzzleIndex < samplePuzzles.Length; puzzleIndex++)
 		{
@@ -93,7 +96,18 @@ public partial class FullSolve : Node
 			Godot.Collections.Dictionary results = solver.Run(puzzle, false);
 			if (results.ContainsKey("is_solved"))
 			{
-				totalSolved += 1;
+                // each puzzle is named "rand####", so we can extract the number by getting the substring after "rand" and parsing it as an int
+				int indexOfRand = puzzle.PuzzleFile.LastIndexOf("rand");
+				if (indexOfRand >= 0)
+				{
+                    string puzzleNumberStr = puzzle.PuzzleFile.Substring(indexOfRand + 4);
+                    if (int.TryParse(puzzleNumberStr, out int puzzleNumber))
+                    {
+                        solvedPuzzles[totalSolved] = puzzleNumber;
+                    }
+                }
+
+				totalSolved++;
 			}
 			else
 			{
@@ -149,6 +163,7 @@ public partial class FullSolve : Node
 		avgDiff /= totalRun;
 
 		GD.Print($"Solved {totalSolved} of {totalRun} puzzles");
+		GD.Print($"Solved Puzzles:[\n{string.Join("\n", solvedPuzzles.Where(p => p > 0))}]");
 		GD.Print($"Total Solve Time: {endTime - startTime} microsecs");
 
 		GD.Print($"Average solve time: {(double)(endTime - startTime) / totalRun:F2} microsecs");
