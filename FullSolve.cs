@@ -5,8 +5,9 @@ using System.Globalization;
 using System.Linq;
 
 /// <summary>
-/// Headless benchmark harness: loads the sample puzzles, runs the solver against each, prints
-/// aggregate statistics, and appends a row to the results data file.
+/// Headless benchmark harness: loads a random sample of puzzles, then runs a full solve over all of
+/// them <see cref="BenchmarkRuns"/> times, printing aggregate statistics and appending a results row
+/// per run. A min/median/avg timing summary across the runs is printed at the end.
 /// </summary>
 public partial class FullSolve : Node
 {
@@ -19,21 +20,32 @@ public partial class FullSolve : Node
 	[Export]
 	public PackedScene SolverScene { get; set; }
 
-	// When > 0, run the solved-clue-trim A/B benchmark (this many timed runs per config) and quit
-	// instead of the normal stats pass. Set to 0 to restore the normal run.
+	// How many times to run the full solve over the loaded puzzles (minimum 1). Each run is timed and
+	// logged; a min/median/avg timing summary across runs is printed at the end.
 	[Export]
 	public int BenchmarkRuns { get; set; } = 5;
 
-	// run through each sample puzzle and attempt to solve it
+	// load a random sample of puzzles, then solve them all BenchmarkRuns times
 	public override void _Ready()
 	{
-		int i = 0;
+		Random rand = new Random();
 		string[] samplePuzzleFiles = DirAccess.GetFilesAt(SamplePuzzlesPath);
-		var samplePuzzles = new Puzzle[Mathf.Min(MaxPuzzles, samplePuzzleFiles.Length)];
-		foreach (string file in samplePuzzleFiles)
+
+		// pick a distinct random subset of the available files via a partial Fisher–Yates shuffle:
+		// swap each of the first 'targetCount' slots with a random slot at or after it, drawing
+		// uniformly from every file with no repeats.
+		int targetCount = Mathf.Min(MaxPuzzles, samplePuzzleFiles.Length);
+		for (int j = 0; j < targetCount; j++)
 		{
-			if (i >= MaxPuzzles)
-				break;
+			int k = rand.Next(j, samplePuzzleFiles.Length);
+			(samplePuzzleFiles[j], samplePuzzleFiles[k]) = (samplePuzzleFiles[k], samplePuzzleFiles[j]);
+		}
+
+		var samplePuzzles = new Puzzle[targetCount];
+		int count = 0;
+		for (int j = 0; j < targetCount; j++)
+		{
+			string file = samplePuzzleFiles[j];
 
 			using FileAccess samplePuzzle = FileAccess.Open(SamplePuzzlesPath + file, FileAccess.ModeFlags.Read);
 			if (samplePuzzle == null)
@@ -51,21 +63,38 @@ public partial class FullSolve : Node
 			string firstLine = text.Split('\n')[0].Trim();
 			string[] header = firstLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 			if (header.Length == 2 && int.TryParse(header[0], out _) && int.TryParse(header[1], out _))
-				continue;
+				puzzle.InitializeFromClues(samplePuzzle.GetPath(), text);
 			else
 				puzzle.Initialize(samplePuzzle.GetPath(), firstLine.Length, text);
 
-			samplePuzzles[i] = puzzle;
-			i += 1;
+			samplePuzzles[count] = puzzle;
+			count += 1;
 		}
 
-		if (BenchmarkRuns > 0)
+		int runs = Math.Max(BenchmarkRuns, 1);
+		var times = new double[runs];
+		for (int run = 0; run < runs; run++)
 		{
-			RunTrimBenchmark(samplePuzzles, BenchmarkRuns);
-			GetTree().Quit();
-			return;
+			GD.Print($"\n=== Full solve run {run + 1}/{runs} ===");
+			times[run] = RunFullSolve(samplePuzzles);
 		}
 
+		if (runs > 1)
+		{
+			double[] sorted = (double[])times.Clone();
+			Array.Sort(sorted);
+			GD.Print($"\n=== Timing across {runs} runs ===  min={sorted[0]:F1}  median={sorted[runs / 2]:F1}  max={sorted[runs - 1]:F1}  avg={times.Average():F1} microsecs");
+		}
+
+		GetTree().Quit();
+	}
+
+	/// <summary>
+	/// Resets and solves every loaded puzzle once, prints aggregate statistics, and appends a row to
+	/// the results file. Returns the total solve time for this pass, in microseconds.
+	/// </summary>
+	private double RunFullSolve(Puzzle[] samplePuzzles)
+	{
 		int totalRun = 0;
 		int totalSolved = 0;
 		int[] solvedPuzzles = new int[samplePuzzles.Length];
@@ -99,7 +128,8 @@ public partial class FullSolve : Node
 			if (puzzle == null)
 				continue;
 
-			//GD.Print($"Begin Solving Puzzle {puzzle.PuzzleFile}");
+			// start from a clean grid so repeated runs each do the full work
+			puzzle.Reset();
 
 			// set up the solver
 			var solver = new Solver();
@@ -166,8 +196,7 @@ public partial class FullSolve : Node
 		if (totalRun <= 0)
 		{
 			GD.Print("Didn't run any solvers");
-			GetTree().Quit();
-			return;
+			return elapsedMicroseconds;
 		}
 
 		avgCorFillPct /= totalRun;
@@ -222,47 +251,7 @@ public partial class FullSolve : Node
 		{
 			GD.Print("Can't record data");
 		}
-		GetTree().Quit();
-	}
 
-	/// <summary>
-	/// Solve every puzzle repeatedly with solved-clue trimming OFF then ON, and report the min/median
-	/// total solve time for each. Compare the mins (most noise-robust); the solved counts must match
-	/// between the two configs — if they don't, the trim has changed correctness.
-	/// </summary>
-	private void RunTrimBenchmark(Puzzle[] puzzles, int repetitions)
-	{
-		GD.Print($"\n=== Solved-clue trim A/B benchmark — {repetitions} runs each ===");
-		BenchmarkConfig("trim OFF", puzzles, repetitions, trim: false);
-		BenchmarkConfig("trim ON", puzzles, repetitions, trim: true);
-		Solver.DPLineSolver.TrimSolvedClues = true; // restore the default
-	}
-
-	private static void BenchmarkConfig(string label, Puzzle[] puzzles, int repetitions, bool trim)
-	{
-		Solver.DPLineSolver.TrimSolvedClues = trim;
-
-		var times = new double[repetitions];
-		int solved = 0;
-		for (int r = 0; r < repetitions; r++)
-		{
-			solved = 0;
-			long start = Stopwatch.GetTimestamp();
-			foreach (Puzzle puzzle in puzzles)
-			{
-				if (puzzle == null)
-					continue;
-
-				puzzle.Reset();
-				var solver = new Solver();
-				solver.Init(puzzle.GridSize);
-				if (solver.Run(puzzle, false).ContainsKey("is_solved"))
-					solved++;
-			}
-			times[r] = Stopwatch.GetElapsedTime(start).TotalMicroseconds;
-		}
-
-		System.Array.Sort(times);
-		GD.Print($"{label,-9}  min={times[0]:F1} µs  median={times[repetitions / 2]:F1} µs  solved={solved}");
+		return elapsedMicroseconds;
 	}
 }
