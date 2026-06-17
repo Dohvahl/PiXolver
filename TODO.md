@@ -26,5 +26,4 @@
 
 # OPTIMIZE
 - [ ] stack of "lines to solve" instead of just looping through all
-- [ ] refactor `get_array_bounds` to use single loop
 - [ ] cache line starts/ends
