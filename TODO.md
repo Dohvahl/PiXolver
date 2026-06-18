@@ -21,7 +21,7 @@
 	- [ ] use feasibility to decide where to start "guessing"
 
 # MAYBE
-- [ ] make `is_row_solved` more sophisticated
+- [x] make `is_row_solved` more sophisticated
 
 # OPTIMIZE
 - [x] stack of "lines to solve" instead of just looping through all
