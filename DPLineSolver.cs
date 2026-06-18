@@ -3,7 +3,7 @@ public partial class Solver
 	/// <summary>
 	/// A complete, reusable single-line solver. Construct it once per line with a fixed grid size,
 	/// then call <see cref="Configure"/> before each <see cref="Deduce"/>: it re-points the solver at
-	/// a new line and clears its memo in place, so steady-state solving allocates nothing.
+	/// a new line and invalidates its memo via a generation stamp, so steady-state solving allocates nothing.
 	///
 	/// Given a line (filled/marked bitmasks) and its clue lengths it computes, for every clue, the
 	/// earliest (leftmost) and latest (rightmost) start across all arrangements that (a) avoid marked
@@ -24,16 +24,26 @@ public partial class Solver
 
 		// Reusable scratch, sized to the worst case at construction and never reallocated.
 		private readonly int[] _clues;        // configured clue lengths (_count valid)
-		private readonly int[] _cfgValues;    // scratch: all clue values, pulled from the Godot array once
-		private readonly bool[] _cfgSolved;   // scratch: all clue solved-flags, pulled out at the same time
+		// Clue-list cache: the Clue references and their (immutable) values are resolved across the
+		// Godot↔C# boundary once per line; only the mutable solved-flags are re-read each Configure.
+		// _cachedClues guards the cache (the clue list for a line is the same object every call).
+		private Godot.Collections.Array<Clue> _cachedClues;
+		private int _cachedCount;
+		private readonly Clue[] _clueRefs;    // cached Clue references for the current line
+		private readonly int[] _cfgValues;    // cached clue values (immutable; refreshed on cache miss)
+		private readonly bool[] _cfgSolved;   // clue solved-flags, refreshed each Configure call
 		private readonly int[] _reversedClues;      // reversed clue lengths (rightmost pass)
 		private readonly int[] _leftStarts;
 		private readonly int[] _rightStarts;
 		private readonly int[] _mirrorStarts;
 		
-		// memos: -1 unknown, 0 no, 1 yes; indexed [clue, cell]
-		private readonly sbyte[,] _suffixFeasible;   
-		private readonly sbyte[,] _prefixFeasible; 
+		// Feasibility memos, indexed [clue, cell]. Each cell packs the generation it was written in with
+		// the boolean result: (generation << 1) | (result ? 1 : 0). A cell is valid for the current pass
+		// iff (cell >> 1) == _generation, so bumping _generation in SetActive invalidates the whole memo
+		// in O(1) without clearing it. 0 (the default) is never a valid stamp since generations start at 1.
+		private readonly int[,] _suffixFeasible;
+		private readonly int[,] _prefixFeasible;
+		private int _generation;
 
 		// The configured line.
 		private uint _filled;
@@ -51,29 +61,38 @@ public partial class Solver
 			_size = size;
 			int maxClues = (size + 1) / 2; // a line of N cells holds at most ceil(N/2) clues
 			_clues = new int[maxClues];
+			_clueRefs = new Clue[maxClues];
 			_cfgValues = new int[maxClues];
 			_cfgSolved = new bool[maxClues];
 			_reversedClues = new int[maxClues];
 			_leftStarts = new int[maxClues];
 			_rightStarts = new int[maxClues];
 			_mirrorStarts = new int[maxClues];
-			_suffixFeasible = new sbyte[maxClues + 1, size + 1];
-			_prefixFeasible = new sbyte[maxClues + 1, size + 1];
+			_suffixFeasible = new int[maxClues + 1, size + 1];
+			_prefixFeasible = new int[maxClues + 1, size + 1];
 		}
 
 		/// <summary>Point the solver at a new line. Allocation-free.</summary>
 		public void Configure(uint filled, uint marked, Godot.Collections.Array<Clue> clues)
 		{
-			int count = clues.Count;
-
-			// Pull each clue across the Godot↔C# boundary exactly once, up front. The trim/copy logic
-			// below then runs on plain arrays instead of re-marshalling clues[i] several times per call.
-			for (int i = 0; i < count; i++)
+			// Resolve the Clue references and their (immutable) values once per line and cache them — the
+			// clue list for a line is the same object every call. Only the mutable solved-flags are
+			// re-read each call. The reference check refreshes the cache if the line ever changes.
+			if (!ReferenceEquals(clues, _cachedClues))
 			{
-				Clue clue = clues[i];
-				_cfgValues[i] = clue.Value;
-				_cfgSolved[i] = clue.IsSolved();
+				_cachedClues = clues;
+				_cachedCount = clues.Count;
+				for (int i = 0; i < _cachedCount; i++)
+				{
+					Clue clue = clues[i];
+					_clueRefs[i] = clue;
+					_cfgValues[i] = clue.Value;
+				}
 			}
+
+			int count = _cachedCount;
+			for (int i = 0; i < count; i++)
+				_cfgSolved[i] = _clueRefs[i].IsSolved();
 
 			int lo = 0;
 			int windowStart = 0;
@@ -164,7 +183,7 @@ public partial class Solver
 
         public void DeduceComplete(out uint forcedFilled, out uint forcedEmpty, out uint solvedClues)
         {
-            SetActive(_filled, _marked, _clues);   // forward line; clears + primes both memos
+            SetActive(_filled, _marked, _clues);   // forward line; bumps the generation to reset both memos
 
             // everFilled: cells some feasible placement covers. Also count starts per clue.
             uint everFilled = 0;
@@ -233,14 +252,8 @@ public partial class Solver
 			_activeFilled = filled;
 			_activeMarked = marked;
 			_activeClues = clues;
-			for (int i = 0; i <= _count; i++)
-			{
-				for (int p = 0; p <= _size; p++)
-				{
-					_suffixFeasible[i, p] = -1;
-					_prefixFeasible[i, p] = -1;
-				}
-			}
+			// invalidate both memos in O(1) by moving to a new generation (no clearing)
+			_generation++;
 		}
 
 		/// <summary>Leftmost reconstruction over the active line; writes a start per clue (-1 if unsatisfiable).</summary>
@@ -273,8 +286,9 @@ public partial class Solver
                 return (_activeFilled & RangeMask(0, p)) == 0;
             if (p < 0)
                 return false;
-            if (_prefixFeasible[i, p] != -1)
-                return _prefixFeasible[i, p] == 1;
+            int memo = _prefixFeasible[i, p];
+            if ((memo >> 1) == _generation)
+                return (memo & 1) != 0;
 
             int clue = _activeClues[i - 1];   // the last of the first i clues
             bool result = false;
@@ -287,7 +301,7 @@ public partial class Solver
             if (!result && Fits(p - clue, clue))
                 result = PrefixFeasible(i - 1, p - clue - 1);
 
-            _prefixFeasible[i, p] = (sbyte)(result ? 1 : 0);
+            _prefixFeasible[i, p] = (_generation << 1) | (result ? 1 : 0);
             return result;
         }		
 		
@@ -299,8 +313,9 @@ public partial class Solver
                 return (_activeFilled & RangeMask(p, _size)) == 0;
 			if (p > _size)
 				return false;
-			if (_suffixFeasible[i, p] != -1)
-				return _suffixFeasible[i, p] == 1;
+			int memo = _suffixFeasible[i, p];
+			if ((memo >> 1) == _generation)
+				return (memo & 1) != 0;
 
 			bool result = false;
 			if (p < _size && !FilledAt(p))                 // option A: leave cell p empty
@@ -308,7 +323,7 @@ public partial class Solver
 			if (!result && Fits(p, _activeClues[i]))       // option B: start clue i at p, gap, then the rest
 				result = SuffixFeasible(i + 1, p + _activeClues[i] + 1);
 
-			_suffixFeasible[i, p] = (sbyte)(result ? 1 : 0);
+			_suffixFeasible[i, p] = (_generation << 1) | (result ? 1 : 0);
 			return result;
 		}
 
