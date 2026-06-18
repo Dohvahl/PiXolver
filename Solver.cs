@@ -9,12 +9,9 @@ using System.Diagnostics;
 [GlobalClass]
 public partial class Solver : RefCounted
 {
-	[Export]
-	public int MaxIterations { get; set; } = 50;
-
 	private SolverData _tracker;
 
-	// number of lines processed (Try calls) during the current Run; reset at the start of each Run
+	// number of lines processed (Try calls / queue pops) during the current Run; reset at each Run
 	private int _linesProcessed;
 
 	public void Init(int inGridSize)
@@ -29,20 +26,17 @@ public partial class Solver : RefCounted
 	}
 
 	/// <summary>
-	/// Runs the solver until the puzzle is solved or <see cref="MaxIterations"/> is reached.
+	/// Runs the solver until the puzzle is solved or the worklist reaches its propagation fixpoint.
 	/// Returns a dictionary describing the outcome (either <c>is_solved</c>, or fill/solved/incorrect stats).
 	/// </summary>
 	public Godot.Collections.Dictionary Run(Puzzle puzzle, bool debug = false)
 	{
-		// run the solver until the puzzle is solved, but to keep it from getting
-		// into an infinite loop, we cap the number of iterations
 		long runStart = Stopwatch.GetTimestamp();
 		_linesProcessed = 0;
-		int iterations = 1;
-		while (iterations - 1 < MaxIterations && RunSingle(puzzle, iterations, debug))
-		{
-			iterations++;
-		}
+
+		// propagate constraints via the worklist until it drains (fixpoint) or the puzzle is solved
+		RunWorklist(puzzle);
+
 		double elapsedMicroseconds = Stopwatch.GetElapsedTime(runStart).TotalMicroseconds;
 
 		if (debug)
@@ -52,8 +46,6 @@ public partial class Solver : RefCounted
 		{
 			{ "lines_processed", _linesProcessed },
 			{ "time_us", elapsedMicroseconds },
-			// true if we stopped because of the iteration cap rather than a no-change fixpoint
-			{ "hit_max", iterations - 1 >= MaxIterations },
 		};
 
 		if (puzzle.IsSolved())
@@ -127,6 +119,93 @@ public partial class Solver : RefCounted
 	{
 		for (int columnIndex = 0; columnIndex < puzzle.GridSize; columnIndex++)
 			Try(puzzle, columnIndex, puzzle.GetColClues(columnIndex), Vector2I.Right, Vector2I.Down);
+	}
+
+	/// <summary>
+	/// AC-3-style constraint-propagation worklist. Seeds a FIFO queue with every row and column, then
+	/// pops a line, runs the line solver on it, and enqueues the perpendicular line through each cell
+	/// it newly fills or marks. Solved lines are never re-enqueued. Cells only ever get added, so the
+	/// queue is guaranteed to drain: the run ends at the propagation fixpoint (empty queue) or when the
+	/// puzzle is solved. Propagation is confluent, so the order only affects speed, never the result.
+	/// </summary>
+	private void RunWorklist(Puzzle puzzle)
+	{
+		int gridSize = puzzle.GridSize;
+		// line ids: 0..gridSize-1 are rows, gridSize..2*gridSize-1 are columns
+		int lineCount = 2 * gridSize;
+
+		// With per-line dedup a line is queued at most once, so a ring buffer of lineCount slots holds
+		// the whole queue; `queued` is the membership flag that enforces the dedup (and bounds size).
+		int[] queue = new int[lineCount];
+		bool[] queued = new bool[lineCount];
+		int head = 0;
+		int tail = 0;
+		int size = lineCount;
+
+		// seed every row and column
+		for (int id = 0; id < lineCount; id++)
+		{
+			queue[id] = id;
+			queued[id] = true;
+		}
+
+		while (size > 0)
+		{
+			int id = queue[head];
+			head = head + 1 == lineCount ? 0 : head + 1;
+			size -= 1;
+			queued[id] = false;
+
+			bool isRow = id < gridSize;
+			int index = isRow ? id : id - gridSize;
+			Vector2I iterationDirection = isRow ? Vector2I.Down : Vector2I.Right;
+			Vector2I fillDirection = isRow ? Vector2I.Right : Vector2I.Down;
+
+			// already solved by an earlier pop; nothing left to propagate from this line
+			if (_tracker.IsSolved(iterationDirection, index))
+				continue;
+
+			var clues = isRow ? puzzle.GetRowClues(index) : puzzle.GetColClues(index);
+
+			// snapshot occupied (filled | marked) cells before and after the solve; the bits that flip
+			// are the newly determined cells whose perpendicular lines now have new information
+			uint before = puzzle.GetFilledCells(index, fillDirection, 0, gridSize)
+				| puzzle.GetMarkedCells(index, fillDirection, 0, gridSize);
+
+			Try(puzzle, index, clues, iterationDirection, fillDirection);
+
+			uint after = puzzle.GetFilledCells(index, fillDirection, 0, gridSize)
+				| puzzle.GetMarkedCells(index, fillDirection, 0, gridSize);
+
+			uint changed = before ^ after; // monotonic, so these are exactly the cells that turned on
+			if (changed == 0)
+				continue;
+
+			// enqueue the perpendicular line through each changed cell: the perpendicular of a row is
+			// the column at the changed position, and vice versa
+			Vector2I perpIterDir = isRow ? Vector2I.Right : Vector2I.Down;
+			uint bits = changed;
+			while (bits != 0)
+			{
+				int p = BitOps.Ctz(bits);
+				bits &= bits - 1;
+
+				if (_tracker.IsSolved(perpIterDir, p))
+					continue;
+
+				int perpId = isRow ? gridSize + p : p;
+				if (!queued[perpId])
+				{
+					queued[perpId] = true;
+					queue[tail] = perpId;
+					tail = tail + 1 == lineCount ? 0 : tail + 1;
+					size += 1;
+				}
+			}
+
+			if (puzzle.IsSolved())
+				break;
+		}
 	}
 
 	#region "Private" solver functions

@@ -134,12 +134,6 @@ public partial class FullSolve : Node
 		int unsolvedMaxLines = 0;
 		long unsolvedSumLines = 0;
 
-		// why unsolved puzzles stopped
-		int capLimited = 0; // unsolved, stopped at the iteration cap (may solve with a higher cap)
-		int needsMore = 0;  // unsolved, reached a no-change fixpoint (beyond line-solving alone)
-		string capLimitedSample = "";
-		string needsMoreSample = "";
-
 
         int totalCells = 900;
 		long startTime = Stopwatch.GetTimestamp();
@@ -225,24 +219,6 @@ public partial class FullSolve : Node
 				}
 			}
 
-			// classify unsolved puzzles: stopped by the iteration cap vs reached a no-change fixpoint
-			if (!results.ContainsKey("is_solved"))
-			{
-				bool hitMax = results.TryGetValue("hit_max", out Variant hitMaxValue) && hitMaxValue.AsBool();
-				if (hitMax)
-				{
-					capLimited++;
-					if (capLimitedSample.Length == 0)
-						capLimitedSample = puzzle.PuzzleFile;
-				}
-				else
-				{
-					needsMore++;
-					if (needsMoreSample.Length == 0)
-						needsMoreSample = puzzle.PuzzleFile;
-				}
-			}
-
 			totalRun += 1;
 		}
 		double elapsedMicroseconds = Stopwatch.GetElapsedTime(startTime).TotalMicroseconds;
@@ -290,12 +266,6 @@ public partial class FullSolve : Node
 			GD.Print($"Lines processed (unsolved): min={unsolvedMinLines}  max={unsolvedMaxLines}  avg={(double)unsolvedSumLines / unsolvedRun:F1}");
 		else
 			GD.Print("Lines processed (unsolved): n/a (all solved)");
-
-		if (!OnlySolved)
-		{
-			GD.Print($"Unsolved, iteration-cap-limited (may solve with a higher MaxIterations): {capLimited}{(capLimited > 0 ? $"  e.g. {capLimitedSample}" : "")}");
-			GD.Print($"Unsolved, reached fixpoint (need techniques beyond line-solving): {needsMore}{(needsMore > 0 ? $"  e.g. {needsMoreSample}" : "")}");
-		}
 
 		using FileAccess dataFile = FileAccess.Open(DataFilePath, FileAccess.ModeFlags.ReadWrite);
 		if (dataFile != null)
