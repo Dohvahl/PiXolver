@@ -177,19 +177,13 @@ public partial class Solver : RefCounted
 
 			var clues = isRow ? puzzle.GetRowClues(index) : puzzle.GetColClues(index);
 
-			// snapshot occupied (filled | marked) cells before and after the solve; the bits that flip
-			// are the newly determined cells whose perpendicular lines now have new information. The
-			// pre-solve masks are handed to Try so the line solver doesn't re-derive them from the grid.
+			// Hand the pre-solve masks to Try so the line solver doesn't re-derive them, and let Try
+			// report exactly the cells it newly determined — so we never re-scan the grid for an "after"
+			// snapshot. Those changed cells are the ones whose perpendicular lines now have new info.
 			uint beforeFilled = puzzle.GetFilledCells(index, fillDirection, 0, gridSize);
 			uint beforeMarked = puzzle.GetMarkedCells(index, fillDirection, 0, gridSize);
-			uint before = beforeFilled | beforeMarked;
 
-			Try(puzzle, index, clues, iterationDirection, fillDirection, beforeFilled, beforeMarked);
-
-			uint after = puzzle.GetFilledCells(index, fillDirection, 0, gridSize)
-				| puzzle.GetMarkedCells(index, fillDirection, 0, gridSize);
-
-			uint changed = before ^ after; // monotonic, so these are exactly the cells that turned on
+			uint changed = Try(puzzle, index, clues, iterationDirection, fillDirection, beforeFilled, beforeMarked);
 			if (changed == 0)
 				continue;
 
@@ -222,18 +216,20 @@ public partial class Solver : RefCounted
 
 	#region "Private" solver functions
 
-	/// <summary>Returns true if this solved the row/column.</summary>
-	private bool Try(Puzzle puzzle, int index, Godot.Collections.Array<Clue> clues, Vector2I iterationDirection, Vector2I fillDirection, uint filled, uint marked)
+	/// <summary>Returns the cells this newly determined (filled or marked), in line-local coordinates.</summary>
+	private uint Try(Puzzle puzzle, int index, Godot.Collections.Array<Clue> clues, Vector2I iterationDirection, Vector2I fillDirection, uint filled, uint marked)
 	{
 		_linesProcessed++;
 
-		// no clues for this row, or we've already solved it; skip to the next one
+		// no clues for this row, or we've already solved it; nothing changes
 		if (clues.Count == 0 || _tracker.IsSolved(iterationDirection, index))
-			return true;
+			return 0;
+
+		uint occupied = filled | marked;
 
 		// the line may already be complete (e.g. finished off by a perpendicular solve); if so just
 		// record it solved instead of running the line solver
-		if (puzzle.IsLineSolved(index, fillDirection))
+		if (puzzle.IsLineSolvedWith(index, fillDirection, filled))
 		{
 			_tracker.MarkSolved(iterationDirection, index);
 
@@ -241,25 +237,19 @@ public partial class Solver : RefCounted
 			foreach (var clue in clues)
 				clue.MarkSolved();
 
-            // ensure the empty cells are marked
-            puzzle.MarkEmptyCells(index, fillDirection);
-			return true;
+			// every previously-empty cell just became marked
+			puzzle.MarkEmptyCells(index, fillDirection);
+			return BitOps.FieldMask(puzzle.GridSize) & ~occupied;
 		}
 
-		bool result = TryLineSolve(puzzle, index, clues, iterationDirection, fillDirection, filled, marked);
-		if (result)
-		{
-			// ensure all row clues are marked solved
-			foreach (Clue clue in clues)
-				clue.MarkSolved();
-		}
-
-		return result;
+		return TryLineSolve(puzzle, index, clues, iterationDirection, fillDirection, filled, marked);
 	}
 
-	/// <summary>Returns true if the row/column is solved by this.</summary>
-	private bool TryLineSolve(Puzzle puzzle, int index, Godot.Collections.Array<Clue> clues, Vector2I iterationDirection, Vector2I fillDirection, uint filledCells, uint markedCells)
+	/// <summary>Returns the cells this newly determined (filled or marked), in line-local coordinates.</summary>
+	private uint TryLineSolve(Puzzle puzzle, int index, Godot.Collections.Array<Clue> clues, Vector2I iterationDirection, Vector2I fillDirection, uint filledCells, uint markedCells)
 	{
+		uint occupied = filledCells | markedCells;
+
 		DPLineSolver lineSolver = _tracker.GetLineSolver(iterationDirection, index);
 		lineSolver.Configure(filledCells, markedCells, clues);
 		lineSolver.DeduceComplete(out uint forcedFilled, out uint forcedEmpty, out uint solvedClues);
@@ -273,15 +263,20 @@ public partial class Solver : RefCounted
 				clues[i].MarkSolved();
 		}
 
-        if (puzzle.IsLineSolved(index, fillDirection))
+		// post-fill filled mask, derived without re-scanning the grid
+		uint newFilled = filledCells | forcedFilled;
+		if (puzzle.IsLineSolvedWith(index, fillDirection, newFilled))
 		{
+			// fully solved: mark every remaining empty and pin all clues
 			puzzle.MarkEmptyCells(index, fillDirection);
 			_tracker.MarkSolved(iterationDirection, index);
-			return true;
+			foreach (Clue clue in clues)
+				clue.MarkSolved();
+			return BitOps.FieldMask(puzzle.GridSize) & ~occupied;
 		}
 
-        // the check above already returned true if this line was solved, so it isn't
-        return false;
+		// not solved: the changed cells are the forced ones that weren't already occupied
+		return (forcedFilled | forcedEmpty) & ~occupied;
 	}
 
 	#endregion "Private" solver functions

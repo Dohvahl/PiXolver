@@ -29,6 +29,10 @@ public partial class Puzzle : RefCounted
 	// Single source of truth: the playing field and the (immutable) solution.
 	private CellState[,] _grid;   // _grid[x, y]
 	private bool[,] _solution;    // _solution[x, y] — filled cells of the answer
+	// Per-line bitmasks of the (immutable) solution, precomputed once so "is this line solved?" checks
+	// don't re-scan _solution. Left as zeros for clues-only puzzles, where there is no solution.
+	private uint[] _solutionRowFilled = Array.Empty<uint>();
+	private uint[] _solutionColumnFilled = Array.Empty<uint>();
 
 	// Derived clue metadata for the top/left of the puzzle.
 	private ClueLine[] _rowClues;
@@ -67,6 +71,9 @@ public partial class Puzzle : RefCounted
 		// set the "solved" state of the puzzle
 		InitializeSolution(initialState);
 
+		// precompute the solution's per-line bitmasks (used by the solved-state checks)
+		PrecomputeSolutionMasks();
+
 		// add clues to the top and left side of the puzzle
 		SetupClues();
 	}
@@ -102,6 +109,8 @@ public partial class Puzzle : RefCounted
 		GridSize = gridSize;
 		_grid = new CellState[gridSize, gridSize];
 		_solution = new bool[gridSize, gridSize]; // unused for clues-only; kept non-null for safety
+		_solutionRowFilled = new uint[gridSize];     // unused for clues-only
+		_solutionColumnFilled = new uint[gridSize];  // unused for clues-only
 		_rowClues = new ClueLine[gridSize];
 		_columnClues = new ClueLine[gridSize];
 		for (int i = 0; i < gridSize; i++)
@@ -224,23 +233,23 @@ public partial class Puzzle : RefCounted
 
     private void SetEmptyColumnCells(int index, uint value, int offset)
     {
-        int i = 0;
-        while (offset + i < GridSize)
+        while (value != 0)
         {
-            if ((value & (1u << i)) != 0)
+            int i = BitOps.Ctz(value);
+            value &= value - 1;
+            if (offset + i < GridSize)
                 MarkCell(new Vector2I(index, offset + i));
-            i += 1;
         }
     }
 
     private void SetEmptyRowCells(int index, uint value, int offset)
     {
-		int i = 0;
-		while (offset + i < GridSize)
+		while (value != 0)
 		{
-			if ((value & (1u << i)) != 0)
+			int i = BitOps.Ctz(value);
+			value &= value - 1;
+			if (offset + i < GridSize)
 				MarkCell(new Vector2I(offset + i, index));
-			i += 1;
 		}
     }
 
@@ -254,23 +263,23 @@ public partial class Puzzle : RefCounted
 
 	public void FillRow(int index, uint value, int offset = 0)
 	{
-		int i = 0;
-		while (offset + i < GridSize)
+		while (value != 0)
 		{
-			if ((value & (1u << i)) != 0)
+			int i = BitOps.Ctz(value);
+			value &= value - 1;
+			if (offset + i < GridSize)
 				SetFilled(offset + i, index);
-			i += 1;
 		}
 	}
 
 	public void FillColumn(int index, uint value, int offset = 0)
 	{
-		int i = 0;
-		while (offset + i < GridSize)
+		while (value != 0)
 		{
-			if ((value & (1u << i)) != 0)
+			int i = BitOps.Ctz(value);
+			value &= value - 1;
+			if (offset + i < GridSize)
 				SetFilled(index, offset + i);
-			i += 1;
 		}
 	}
 
@@ -365,6 +374,19 @@ public partial class Puzzle : RefCounted
 		return LineMatchesClues(ColumnFilled(i), _columnClues[i]);
 	}
 
+	/// <summary>
+	/// Like <see cref="IsLineSolved"/>, but tests a caller-supplied filled mask instead of re-deriving
+	/// the line's filled cells from the grid. Lets the solver reuse masks it already has on hand.
+	/// </summary>
+	public bool IsLineSolvedWith(int index, Vector2I fillDirection, uint filled)
+	{
+		if (fillDirection == Vector2I.Right) // row
+			return _hasSolution ? filled == _solutionRowFilled[index] : LineMatchesClues(filled, _rowClues[index]);
+		if (fillDirection == Vector2I.Down) // column
+			return _hasSolution ? filled == _solutionColumnFilled[index] : LineMatchesClues(filled, _columnClues[index]);
+		return false;
+	}
+
 	// Accessors for the solver (same assembly), so it doesn't reach into the grid directly.
 	internal uint RowFilledBits(int row) => RowFilled(row);
 	internal uint RowMarkedBits(int row) => RowMarked(row);
@@ -420,26 +442,25 @@ public partial class Puzzle : RefCounted
 		return bits;
 	}
 
-	private uint SolutionRowFilled(int row)
-	{
-		uint bits = 0;
-		for (int x = 0; x < GridSize; x++)
-		{
-			if (_solution[x, row])
-				bits |= 1u << x;
-		}
-		return bits;
-	}
+	private uint SolutionRowFilled(int row) => _solutionRowFilled[row];
+	private uint SolutionColumnFilled(int col) => _solutionColumnFilled[col];
 
-	private uint SolutionColumnFilled(int col)
+	// Build the per-line solution bitmasks from _solution in a single pass (called once at init).
+	private void PrecomputeSolutionMasks()
 	{
-		uint bits = 0;
+		_solutionRowFilled = new uint[GridSize];
+		_solutionColumnFilled = new uint[GridSize];
 		for (int y = 0; y < GridSize; y++)
 		{
-			if (_solution[col, y])
-				bits |= 1u << y;
+			for (int x = 0; x < GridSize; x++)
+			{
+				if (_solution[x, y])
+				{
+					_solutionRowFilled[y] |= 1u << x;
+					_solutionColumnFilled[x] |= 1u << y;
+				}
+			}
 		}
-		return bits;
 	}
 
 	/// <summary>True if the line's maximal filled runs exactly match the clue values, in order.</summary>
