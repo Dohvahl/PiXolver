@@ -18,6 +18,7 @@
 - [x] maybe account for marked cells when using SB
 	- have to be careful about actual filling though
 - [ ] lookup/guess after LineSolve
+	- [ ] use feasibility to decide where to start "guessing"
 
 # CLEANUP
 - [ ] refactor `get_array_bounds` to share code
