@@ -18,6 +18,9 @@ public partial class FullSolve : Node
 	public int MaxPuzzles { get; set; } = 10;
 
 	[Export]
+	public bool OnlySolved { get; set; } = false;
+
+	[Export]
 	public PackedScene SolverScene { get; set; }
 
 	// How many times to run the full solve over the loaded puzzles (minimum 1). Each run is timed and
@@ -29,7 +32,11 @@ public partial class FullSolve : Node
 	public override void _Ready()
 	{
 		Random rand = new Random();
-		string[] samplePuzzleFiles = DirAccess.GetFilesAt(SamplePuzzlesPath);
+		string[] samplePuzzleFiles = [];
+        if (OnlySolved)
+			samplePuzzleFiles = ["rand64", "rand5001", "rand5002", "rand3884", "rand3915", "rand4564", "rand2181", "rand4473", "rand2941", "rand479", "rand2165", "rand363", "rand373", "rand1538", "rand603", "rand2104", "rand3149", "rand2921", "rand2872", "rand2830", "rand450", "rand343"];
+		else
+			samplePuzzleFiles = DirAccess.GetFilesAt(SamplePuzzlesPath);
 
 		// pick a distinct random subset of the available files via a partial Fisher–Yates shuffle:
 		// swap each of the first 'targetCount' slots with a random slot at or after it, drawing
@@ -145,8 +152,8 @@ public partial class FullSolve : Node
 			// start from a clean grid so repeated runs each do the full work
 			puzzle.Reset();
 
-			// set up the solver
-			var solver = new Solver();
+            // set up the solver
+            var solver = new Solver();
 			solver.Init(puzzle.GridSize);
 
 			Godot.Collections.Dictionary results = solver.Run(puzzle, false);
@@ -250,23 +257,29 @@ public partial class FullSolve : Node
 		avgSolPct /= totalRun;
 		avgDiff /= totalRun;
 
-		GD.Print($"Solved {totalSolved} of {totalRun} puzzles");
-		GD.Print($"Solved Puzzles:[\n{string.Join("\n", solvedPuzzles.Where(p => p > 0))}]");
-		GD.Print($"Total Solve Time: {elapsedMicroseconds:F1} microsecs");
+		if (!OnlySolved)
+		{
+			GD.Print($"Solved {totalSolved} of {totalRun} puzzles");
+			GD.Print($"Solved Puzzles:[\n{string.Join("\n", solvedPuzzles.Where(p => p > 0))}]");
+		}
 
+		GD.Print($"Total Solve Time: {elapsedMicroseconds:F1} microsecs");
 		GD.Print($"Average solve time: {elapsedMicroseconds / totalRun:F2} microsecs");
 
-		GD.Print($"\nMin Correctly Filled Cells: {minCorFillPct * 100:F2}%, Puzzle - {minCorFillPuzzle}");
-		GD.Print($"Max Correctly Filled Cells: {maxCorFillPct * 100:F2}%, Puzzle - {maxCorFillPuzzle}");
-		GD.Print($"Average Correctly Filled Cells: {avgCorFillPct * 100:F2}%");
+		if (!OnlySolved)
+		{
+			GD.Print($"\nMin Correctly Filled Cells: {minCorFillPct * 100:F2}%, Puzzle - {minCorFillPuzzle}");
+			GD.Print($"Max Correctly Filled Cells: {maxCorFillPct * 100:F2}%, Puzzle - {maxCorFillPuzzle}");
+			GD.Print($"Average Correctly Filled Cells: {avgCorFillPct * 100:F2}%");
 
-		GD.Print($"\nMin Correct Cells: {minSolPct * 100:F2}%, Puzzle - {minSolPuzzle}");
-		GD.Print($"Max Correct Cells: {maxSolPct * 100:F2}%, Puzzle - {maxSolPuzzle}");
-		GD.Print($"Average Correct Cells: {avgSolPct * 100:F2}%");
+			GD.Print($"\nMin Correct Cells: {minSolPct * 100:F2}%, Puzzle - {minSolPuzzle}");
+			GD.Print($"Max Correct Cells: {maxSolPct * 100:F2}%, Puzzle - {maxSolPuzzle}");
+			GD.Print($"Average Correct Cells: {avgSolPct * 100:F2}%");
 
-		GD.Print($"\nMin Incorrect Cells: {(long)minDiff}/{totalCells}");
-		GD.Print($"Max Incorrect Cells: {(long)maxDiff}/{totalCells}");
-		GD.Print($"Average Incorrect Cells: {(long)avgDiff}/{totalCells}");
+			GD.Print($"\nMin Incorrect Cells: {(long)minDiff}/{totalCells}");
+			GD.Print($"Max Incorrect Cells: {(long)maxDiff}/{totalCells}");
+			GD.Print($"Average Incorrect Cells: {(long)avgDiff}/{totalCells}");
+		}
 
 		int unsolvedRun = totalRun - totalSolved;
 		if (totalSolved > 0)
@@ -277,8 +290,12 @@ public partial class FullSolve : Node
 			GD.Print($"Iterations to no-change (unsolved): min={unsolvedMinIter}  max={unsolvedMaxIter}  avg={(double)unsolvedSumIter / unsolvedRun:F1}");
 		else
 			GD.Print("Iterations to no-change (unsolved): n/a (all solved)");
-		GD.Print($"Unsolved, iteration-cap-limited (may solve with a higher MaxIterations): {capLimited}{(capLimited > 0 ? $"  e.g. {capLimitedSample}" : "")}");
-		GD.Print($"Unsolved, reached fixpoint (need techniques beyond line-solving): {needsMore}{(needsMore > 0 ? $"  e.g. {needsMoreSample}" : "")}");
+
+		if (!OnlySolved)
+		{
+			GD.Print($"Unsolved, iteration-cap-limited (may solve with a higher MaxIterations): {capLimited}{(capLimited > 0 ? $"  e.g. {capLimitedSample}" : "")}");
+			GD.Print($"Unsolved, reached fixpoint (need techniques beyond line-solving): {needsMore}{(needsMore > 0 ? $"  e.g. {needsMoreSample}" : "")}");
+		}
 
 		using FileAccess dataFile = FileAccess.Open(DataFilePath, FileAccess.ModeFlags.ReadWrite);
 		if (dataFile != null)
@@ -296,21 +313,21 @@ public partial class FullSolve : Node
 				totalSolved,
 				(long)elapsedMicroseconds,
 				elapsedMicroseconds / totalRun,
-				minCorFillPct,
-				maxCorFillPct,
-				avgCorFillPct,
-				minSolPct,
-				maxSolPct,
-				avgSolPct,
-				(long)minDiff,
-				(long)maxDiff,
-				(long)avgDiff,
+				!OnlySolved ? minCorFillPct : -1,
+				!OnlySolved ? maxCorFillPct : -1,
+				!OnlySolved ? avgCorFillPct : -1,
+				!OnlySolved ? minSolPct : -1,
+				!OnlySolved ? maxSolPct : -1,
+				!OnlySolved ? avgSolPct : -1,
+				!OnlySolved ? (long)minDiff : -1,
+				!OnlySolved ? (long)maxDiff : -1,
+				!OnlySolved ? (long)avgDiff : -1,
 				solvedMinIter,
 				solvedMaxIter,
                 (double)solvedSumIter / totalSolved,
-				unsolvedMinIter,
-				unsolvedMaxIter,
-                (double)unsolvedSumIter / unsolvedRun);
+				!OnlySolved ? unsolvedMinIter : -1,
+				!OnlySolved ? unsolvedMaxIter : -1,
+                !OnlySolved ? (double)unsolvedSumIter / unsolvedRun : -1);
 			dataFile.StoreLine(line);
 		}
 		else
