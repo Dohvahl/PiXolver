@@ -111,14 +111,24 @@ public partial class Solver : RefCounted
 
 	public void RunRows(Puzzle puzzle)
 	{
-		for (int rowIndex = 0; rowIndex < puzzle.GridSize; rowIndex++)
-			Try(puzzle, rowIndex, puzzle.GetRowClues(rowIndex), Vector2I.Down, Vector2I.Right);
+		int gridSize = puzzle.GridSize;
+		for (int rowIndex = 0; rowIndex < gridSize; rowIndex++)
+		{
+			uint filled = puzzle.GetFilledCells(rowIndex, Vector2I.Right, 0, gridSize);
+			uint marked = puzzle.GetMarkedCells(rowIndex, Vector2I.Right, 0, gridSize);
+			Try(puzzle, rowIndex, puzzle.GetRowClues(rowIndex), Vector2I.Down, Vector2I.Right, filled, marked);
+		}
 	}
 
 	public void RunColumns(Puzzle puzzle)
 	{
-		for (int columnIndex = 0; columnIndex < puzzle.GridSize; columnIndex++)
-			Try(puzzle, columnIndex, puzzle.GetColClues(columnIndex), Vector2I.Right, Vector2I.Down);
+		int gridSize = puzzle.GridSize;
+		for (int columnIndex = 0; columnIndex < gridSize; columnIndex++)
+		{
+			uint filled = puzzle.GetFilledCells(columnIndex, Vector2I.Down, 0, gridSize);
+			uint marked = puzzle.GetMarkedCells(columnIndex, Vector2I.Down, 0, gridSize);
+			Try(puzzle, columnIndex, puzzle.GetColClues(columnIndex), Vector2I.Right, Vector2I.Down, filled, marked);
+		}
 	}
 
 	/// <summary>
@@ -168,11 +178,13 @@ public partial class Solver : RefCounted
 			var clues = isRow ? puzzle.GetRowClues(index) : puzzle.GetColClues(index);
 
 			// snapshot occupied (filled | marked) cells before and after the solve; the bits that flip
-			// are the newly determined cells whose perpendicular lines now have new information
-			uint before = puzzle.GetFilledCells(index, fillDirection, 0, gridSize)
-				| puzzle.GetMarkedCells(index, fillDirection, 0, gridSize);
+			// are the newly determined cells whose perpendicular lines now have new information. The
+			// pre-solve masks are handed to Try so the line solver doesn't re-derive them from the grid.
+			uint beforeFilled = puzzle.GetFilledCells(index, fillDirection, 0, gridSize);
+			uint beforeMarked = puzzle.GetMarkedCells(index, fillDirection, 0, gridSize);
+			uint before = beforeFilled | beforeMarked;
 
-			Try(puzzle, index, clues, iterationDirection, fillDirection);
+			Try(puzzle, index, clues, iterationDirection, fillDirection, beforeFilled, beforeMarked);
 
 			uint after = puzzle.GetFilledCells(index, fillDirection, 0, gridSize)
 				| puzzle.GetMarkedCells(index, fillDirection, 0, gridSize);
@@ -211,7 +223,7 @@ public partial class Solver : RefCounted
 	#region "Private" solver functions
 
 	/// <summary>Returns true if this solved the row/column.</summary>
-	private bool Try(Puzzle puzzle, int index, Godot.Collections.Array<Clue> clues, Vector2I iterationDirection, Vector2I fillDirection)
+	private bool Try(Puzzle puzzle, int index, Godot.Collections.Array<Clue> clues, Vector2I iterationDirection, Vector2I fillDirection, uint filled, uint marked)
 	{
 		_linesProcessed++;
 
@@ -234,7 +246,7 @@ public partial class Solver : RefCounted
 			return true;
 		}
 
-		bool result = TryLineSolve(puzzle, index, clues, iterationDirection, fillDirection);
+		bool result = TryLineSolve(puzzle, index, clues, iterationDirection, fillDirection, filled, marked);
 		if (result)
 		{
 			// ensure all row clues are marked solved
@@ -246,12 +258,8 @@ public partial class Solver : RefCounted
 	}
 
 	/// <summary>Returns true if the row/column is solved by this.</summary>
-	private bool TryLineSolve(Puzzle puzzle, int index, Godot.Collections.Array<Clue> clues, Vector2I iterationDirection, Vector2I fillDirection)
+	private bool TryLineSolve(Puzzle puzzle, int index, Godot.Collections.Array<Clue> clues, Vector2I iterationDirection, Vector2I fillDirection, uint filledCells, uint markedCells)
 	{
-		int gridSize = puzzle.GridSize;
-		uint filledCells = puzzle.GetFilledCells(index, fillDirection, 0, gridSize);
-		uint markedCells = puzzle.GetMarkedCells(index, fillDirection, 0, gridSize);
-
 		DPLineSolver lineSolver = _tracker.GetLineSolver(iterationDirection, index);
 		lineSolver.Configure(filledCells, markedCells, clues);
 		lineSolver.DeduceComplete(out uint forcedFilled, out uint forcedEmpty, out uint solvedClues);

@@ -24,6 +24,8 @@ public partial class Solver
 
 		// Reusable scratch, sized to the worst case at construction and never reallocated.
 		private readonly int[] _clues;        // configured clue lengths (_count valid)
+		private readonly int[] _cfgValues;    // scratch: all clue values, pulled from the Godot array once
+		private readonly bool[] _cfgSolved;   // scratch: all clue solved-flags, pulled out at the same time
 		private readonly int[] _reversedClues;      // reversed clue lengths (rightmost pass)
 		private readonly int[] _leftStarts;
 		private readonly int[] _rightStarts;
@@ -49,6 +51,8 @@ public partial class Solver
 			_size = size;
 			int maxClues = (size + 1) / 2; // a line of N cells holds at most ceil(N/2) clues
 			_clues = new int[maxClues];
+			_cfgValues = new int[maxClues];
+			_cfgSolved = new bool[maxClues];
 			_reversedClues = new int[maxClues];
 			_leftStarts = new int[maxClues];
 			_rightStarts = new int[maxClues];
@@ -62,6 +66,15 @@ public partial class Solver
 		{
 			int count = clues.Count;
 
+			// Pull each clue across the Godot↔C# boundary exactly once, up front. The trim/copy logic
+			// below then runs on plain arrays instead of re-marshalling clues[i] several times per call.
+			for (int i = 0; i < count; i++)
+			{
+				Clue clue = clues[i];
+				_cfgValues[i] = clue.Value;
+				_cfgSolved[i] = clue.IsSolved();
+			}
+
 			int lo = 0;
 			int windowStart = 0;
 			int hi = count - 1;
@@ -73,21 +86,21 @@ public partial class Solver
 			// those would split the line, which this windowed form can't represent.
 			if (TrimSolvedClues)
 			{
-				while (lo < count && clues[lo].IsSolved())
+				while (lo < count && _cfgSolved[lo])
 				{
 					int runStart = BitOps.FirstSet(filled, windowStart, _capacity - windowStart);
 					if (runStart < 0)
 						break; // a solved clue must have a filled run; bail rather than mis-trim
-					windowStart = runStart + clues[lo].Value;
+					windowStart = runStart + _cfgValues[lo];
 					lo++;
 				}
 
-				while (hi >= lo && clues[hi].IsSolved())
+				while (hi >= lo && _cfgSolved[hi])
 				{
 					int runEnd = BitOps.LastSet(filled, windowStart, windowEnd - windowStart);
 					if (runEnd < 0)
 						break;
-					windowEnd = runEnd - clues[hi].Value + 1;
+					windowEnd = runEnd - _cfgValues[hi] + 1;
 					hi--;
 				}
 			}
@@ -98,7 +111,7 @@ public partial class Solver
 			_count = hi >= lo ? hi - lo + 1 : 0;
 
 			for (int i = 0; i < _count; i++)
-				_clues[i] = clues[lo + i].Value;
+				_clues[i] = _cfgValues[lo + i];
 
 			uint windowMask = _size > 0 ? BitOps.FieldMask(_size) : 0u;
 			_filled = (filled >> windowStart) & windowMask;
