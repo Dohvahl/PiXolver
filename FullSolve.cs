@@ -119,6 +119,20 @@ public partial class FullSolve : Node
 		double maxDiff = double.NegativeInfinity;
 		double avgDiff = 0.0;
 
+		// iterations to solve (solved puzzles) and to reach no-change (unsolved puzzles)
+		int solvedMinIter = int.MaxValue;
+		int solvedMaxIter = 0;
+		long solvedSumIter = 0;
+		int unsolvedMinIter = int.MaxValue;
+		int unsolvedMaxIter = 0;
+		long unsolvedSumIter = 0;
+
+		// why unsolved puzzles stopped
+		int capLimited = 0; // unsolved, stopped at the iteration cap (may solve with a higher cap)
+		int needsMore = 0;  // unsolved, reached a no-change fixpoint (beyond line-solving alone)
+		string capLimitedSample = "";
+		string needsMoreSample = "";
+
 
         int totalCells = 900;
 		long startTime = Stopwatch.GetTimestamp();
@@ -136,6 +150,21 @@ public partial class FullSolve : Node
 			solver.Init(puzzle.GridSize);
 
 			Godot.Collections.Dictionary results = solver.Run(puzzle, false);
+
+			int iters = results.TryGetValue("iterations", out Variant iterValue) ? iterValue.AsInt32() : 0;
+			if (results.ContainsKey("is_solved"))
+			{
+				solvedMinIter = Mathf.Min(solvedMinIter, iters);
+				solvedMaxIter = Mathf.Max(solvedMaxIter, iters);
+				solvedSumIter += iters;
+			}
+			else
+			{
+				unsolvedMinIter = Mathf.Min(unsolvedMinIter, iters);
+				unsolvedMaxIter = Mathf.Max(unsolvedMaxIter, iters);
+				unsolvedSumIter += iters;
+			}
+
 			if (results.ContainsKey("is_solved"))
 			{
                 // each puzzle is named "rand####", so we can extract the number by getting the substring after "rand" and parsing it as an int
@@ -189,6 +218,24 @@ public partial class FullSolve : Node
 				}
 			}
 
+			// classify unsolved puzzles: stopped by the iteration cap vs reached a no-change fixpoint
+			if (!results.ContainsKey("is_solved"))
+			{
+				bool hitMax = results.TryGetValue("hit_max", out Variant hitMaxValue) && hitMaxValue.AsBool();
+				if (hitMax)
+				{
+					capLimited++;
+					if (capLimitedSample.Length == 0)
+						capLimitedSample = puzzle.PuzzleFile;
+				}
+				else
+				{
+					needsMore++;
+					if (needsMoreSample.Length == 0)
+						needsMoreSample = puzzle.PuzzleFile;
+				}
+			}
+
 			totalRun += 1;
 		}
 		double elapsedMicroseconds = Stopwatch.GetElapsedTime(startTime).TotalMicroseconds;
@@ -221,16 +268,29 @@ public partial class FullSolve : Node
 		GD.Print($"Max Incorrect Cells: {(long)maxDiff}/{totalCells}");
 		GD.Print($"Average Incorrect Cells: {(long)avgDiff}/{totalCells}");
 
+		int unsolvedRun = totalRun - totalSolved;
+		if (totalSolved > 0)
+			GD.Print($"\nIterations to solve (solved): min={solvedMinIter}  max={solvedMaxIter}  avg={(double)solvedSumIter / totalSolved:F1}");
+		else
+			GD.Print("\nIterations to solve (solved): n/a (none solved)");
+		if (unsolvedRun > 0)
+			GD.Print($"Iterations to no-change (unsolved): min={unsolvedMinIter}  max={unsolvedMaxIter}  avg={(double)unsolvedSumIter / unsolvedRun:F1}");
+		else
+			GD.Print("Iterations to no-change (unsolved): n/a (all solved)");
+		GD.Print($"Unsolved, iteration-cap-limited (may solve with a higher MaxIterations): {capLimited}{(capLimited > 0 ? $"  e.g. {capLimitedSample}" : "")}");
+		GD.Print($"Unsolved, reached fixpoint (need techniques beyond line-solving): {needsMore}{(needsMore > 0 ? $"  e.g. {needsMoreSample}" : "")}");
+
 		using FileAccess dataFile = FileAccess.Open(DataFilePath, FileAccess.ModeFlags.ReadWrite);
 		if (dataFile != null)
 		{
 			dataFile.SeekEnd();
-			// Format:
-			// Date, #runs, #solved, total_time (microseconds), average_solve_time (microseconds),
-			// min/max/avg correctly filled, min/max/avg correct, min/max/avg diff
-			string line = string.Format(
+            // Format:
+            // Date, #runs, #solved, total_time (microseconds), average_solve_time (microseconds),
+            // min/max/avg correctly filled, min/max/avg correct, min/max/avg diff
+            // min/max/avg iterations to solve (solved), min/max/avg iterations to no-change (unsolved)
+            string line = string.Format(
 				CultureInfo.InvariantCulture,
-				"{0},{1},{2},{3},{4:F2},{5:F5},{6:F5},{7:F5},{8:F5},{9:F5},{10:F5},{11},{12},{13}",
+				"{0},{1},{2},{3},{4:F2},{5:F5},{6:F5},{7:F5},{8:F5},{9:F5},{10:F5},{11},{12},{13},{14},{15},{16:F1},{17},{18},{19:F1}",
 				DateTime.Now.ToString("s"),
 				totalRun,
 				totalSolved,
@@ -244,7 +304,13 @@ public partial class FullSolve : Node
 				avgSolPct,
 				(long)minDiff,
 				(long)maxDiff,
-				(long)avgDiff);
+				(long)avgDiff,
+				solvedMinIter,
+				solvedMaxIter,
+                (double)solvedSumIter / totalSolved,
+				unsolvedMinIter,
+				unsolvedMaxIter,
+                (double)unsolvedSumIter / unsolvedRun);
 			dataFile.StoreLine(line);
 		}
 		else

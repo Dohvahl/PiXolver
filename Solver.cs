@@ -48,6 +48,8 @@ public partial class Solver : RefCounted
 		{
 			{ "iterations", iterations },
 			{ "time_us", elapsedMicroseconds },
+			// true if we stopped because of the iteration cap rather than a no-change fixpoint
+			{ "hit_max", iterations - 1 >= MaxIterations },
 		};
 
 		if (puzzle.IsSolved())
