@@ -126,13 +126,13 @@ public partial class FullSolve : Node
 		double maxDiff = double.NegativeInfinity;
 		double avgDiff = 0.0;
 
-		// iterations to solve (solved puzzles) and to reach no-change (unsolved puzzles)
-		int solvedMinIter = int.MaxValue;
-		int solvedMaxIter = 0;
-		long solvedSumIter = 0;
-		int unsolvedMinIter = int.MaxValue;
-		int unsolvedMaxIter = 0;
-		long unsolvedSumIter = 0;
+		// lines processed (Try calls) for solved puzzles vs unsolved (reached no-change) puzzles
+		int solvedMinLines = int.MaxValue;
+		int solvedMaxLines = 0;
+		long solvedSumLines = 0;
+		int unsolvedMinLines = int.MaxValue;
+		int unsolvedMaxLines = 0;
+		long unsolvedSumLines = 0;
 
 		// why unsolved puzzles stopped
 		int capLimited = 0; // unsolved, stopped at the iteration cap (may solve with a higher cap)
@@ -158,18 +158,18 @@ public partial class FullSolve : Node
 
 			Godot.Collections.Dictionary results = solver.Run(puzzle, false);
 
-			int iters = results.TryGetValue("iterations", out Variant iterValue) ? iterValue.AsInt32() : 0;
+			int linesProcessed = results.TryGetValue("lines_processed", out Variant linesValue) ? linesValue.AsInt32() : 0;
 			if (results.ContainsKey("is_solved"))
 			{
-				solvedMinIter = Mathf.Min(solvedMinIter, iters);
-				solvedMaxIter = Mathf.Max(solvedMaxIter, iters);
-				solvedSumIter += iters;
+				solvedMinLines = Mathf.Min(solvedMinLines, linesProcessed);
+				solvedMaxLines = Mathf.Max(solvedMaxLines, linesProcessed);
+				solvedSumLines += linesProcessed;
 			}
 			else
 			{
-				unsolvedMinIter = Mathf.Min(unsolvedMinIter, iters);
-				unsolvedMaxIter = Mathf.Max(unsolvedMaxIter, iters);
-				unsolvedSumIter += iters;
+				unsolvedMinLines = Mathf.Min(unsolvedMinLines, linesProcessed);
+				unsolvedMaxLines = Mathf.Max(unsolvedMaxLines, linesProcessed);
+				unsolvedSumLines += linesProcessed;
 			}
 
 			if (results.ContainsKey("is_solved"))
@@ -283,13 +283,13 @@ public partial class FullSolve : Node
 
 		int unsolvedRun = totalRun - totalSolved;
 		if (totalSolved > 0)
-			GD.Print($"\nIterations to solve (solved): min={solvedMinIter}  max={solvedMaxIter}  avg={(double)solvedSumIter / totalSolved:F1}");
+			GD.Print($"\nLines processed (solved): min={solvedMinLines}  max={solvedMaxLines}  avg={(double)solvedSumLines / totalSolved:F1}");
 		else
-			GD.Print("\nIterations to solve (solved): n/a (none solved)");
+			GD.Print("\nLines processed (solved): n/a (none solved)");
 		if (unsolvedRun > 0)
-			GD.Print($"Iterations to no-change (unsolved): min={unsolvedMinIter}  max={unsolvedMaxIter}  avg={(double)unsolvedSumIter / unsolvedRun:F1}");
+			GD.Print($"Lines processed (unsolved): min={unsolvedMinLines}  max={unsolvedMaxLines}  avg={(double)unsolvedSumLines / unsolvedRun:F1}");
 		else
-			GD.Print("Iterations to no-change (unsolved): n/a (all solved)");
+			GD.Print("Lines processed (unsolved): n/a (all solved)");
 
 		if (!OnlySolved)
 		{
@@ -304,7 +304,7 @@ public partial class FullSolve : Node
             // Format:
             // Date, #runs, #solved, total_time (microseconds), average_solve_time (microseconds),
             // min/max/avg correctly filled, min/max/avg correct, min/max/avg diff
-            // min/max/avg iterations to solve (solved), min/max/avg iterations to no-change (unsolved)
+            // min/max/avg lines processed (solved), min/max/avg lines processed (unsolved)
             string line = string.Format(
 				CultureInfo.InvariantCulture,
 				"{0},{1},{2},{3},{4:F2},{5:F5},{6:F5},{7:F5},{8:F5},{9:F5},{10:F5},{11},{12},{13},{14},{15},{16:F1},{17},{18},{19:F1}",
@@ -322,12 +322,12 @@ public partial class FullSolve : Node
 				!OnlySolved ? (long)minDiff : -1,
 				!OnlySolved ? (long)maxDiff : -1,
 				!OnlySolved ? (long)avgDiff : -1,
-				solvedMinIter,
-				solvedMaxIter,
-                (double)solvedSumIter / totalSolved,
-				!OnlySolved ? unsolvedMinIter : -1,
-				!OnlySolved ? unsolvedMaxIter : -1,
-                !OnlySolved ? (double)unsolvedSumIter / unsolvedRun : -1);
+				solvedMinLines,
+				solvedMaxLines,
+                (double)solvedSumLines / totalSolved,
+				!OnlySolved ? unsolvedMinLines : -1,
+				!OnlySolved ? unsolvedMaxLines : -1,
+                !OnlySolved ? (double)unsolvedSumLines / unsolvedRun : -1);
 			dataFile.StoreLine(line);
 		}
 		else

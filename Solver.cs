@@ -14,6 +14,9 @@ public partial class Solver : RefCounted
 
 	private SolverData _tracker;
 
+	// number of lines processed (Try calls) during the current Run; reset at the start of each Run
+	private int _linesProcessed;
+
 	public void Init(int inGridSize)
 	{
 		_tracker = new SolverData();
@@ -34,6 +37,7 @@ public partial class Solver : RefCounted
 		// run the solver until the puzzle is solved, but to keep it from getting
 		// into an infinite loop, we cap the number of iterations
 		long runStart = Stopwatch.GetTimestamp();
+		_linesProcessed = 0;
 		int iterations = 1;
 		while (iterations - 1 < MaxIterations && RunSingle(puzzle, iterations, debug))
 		{
@@ -46,7 +50,7 @@ public partial class Solver : RefCounted
 
 		var results = new Godot.Collections.Dictionary
 		{
-			{ "iterations", iterations },
+			{ "lines_processed", _linesProcessed },
 			{ "time_us", elapsedMicroseconds },
 			// true if we stopped because of the iteration cap rather than a no-change fixpoint
 			{ "hit_max", iterations - 1 >= MaxIterations },
@@ -130,6 +134,8 @@ public partial class Solver : RefCounted
 	/// <summary>Returns true if this solved the row/column.</summary>
 	private bool Try(Puzzle puzzle, int index, Godot.Collections.Array<Clue> clues, Vector2I iterationDirection, Vector2I fillDirection)
 	{
+		_linesProcessed++;
+
 		// no clues for this row, or we've already solved it; skip to the next one
 		if (clues.Count == 0 || _tracker.IsSolved(iterationDirection, index))
 			return true;
