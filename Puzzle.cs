@@ -173,20 +173,6 @@ public partial class Puzzle : RefCounted
 		return _grid[loc.X, loc.Y] == CellState.Empty;
 	}
 
-	public bool AreNCellsFilled(Vector2I startLoc, Vector2I fillDirection, int n)
-	{
-		Vector2I zerodCell = startLoc * fillDirection;
-		int startIndex = Mathf.Max(zerodCell.X, zerodCell.Y);
-		uint nMask = BitOps.FieldMask(n, startIndex);
-		uint cells = 0;
-		if (fillDirection == Vector2I.Right) // row
-			cells = RowFilled(startLoc.Y);
-		else if (fillDirection == Vector2I.Down) // column
-			cells = ColumnFilled(startLoc.X);
-
-		return (cells & nMask) == nMask;
-	}
-
     internal uint GetFilledCells(int index, Vector2I fillDirection, int offset, int window = -1)
     {
         if (window < 0)
@@ -213,78 +199,6 @@ public partial class Puzzle : RefCounted
 			cells = ColumnMarked(index);
 
 		return BitOps.FieldMask(window) & (cells >> offset);
-	}
-
-	/// <summary>Get the first filled cell, starting from startCell, up to count. Returns -1 if none are set.</summary>
-	public int GetFirstFilled(Vector2I startCell, Vector2I fillDirection, int count = -1)
-	{
-		if (count < 0)
-			count = GridSize - 1;
-
-		if (fillDirection == Vector2I.Right) // row
-			return BitOps.FirstSet(RowFilled(startCell.Y), startCell.X, count);
-		if (fillDirection == Vector2I.Down) // column
-			return BitOps.FirstSet(ColumnFilled(startCell.X), startCell.Y, count);
-
-		return -1;
-	}
-
-	/// <summary>Get the last filled cell, starting from endCell, down to endCell-count. Returns -1 if none are set.</summary>
-	public int GetLastFilled(Vector2I endCell, Vector2I fillDirection, int count = -1)
-	{
-		if (count < 0)
-			count = GridSize - 1;
-
-		uint filled = 0;
-		int offset = 0;
-		if (fillDirection == Vector2I.Right) // row
-		{
-			filled = RowFilled(endCell.Y);
-			offset = endCell.X;
-		}
-		else if (fillDirection == Vector2I.Down) // column
-		{
-			filled = ColumnFilled(endCell.X);
-			offset = endCell.Y;
-		}
-
-		return BitOps.LastSet(filled, offset - count + 1, count);
-	}
-
-	/// <summary>Get the first marked cell, starting from startCell, up to count. Returns -1 if none are marked.</summary>
-	public int GetFirstMarked(Vector2I startCell, Vector2I fillDirection, int count = -1)
-	{
-		if (count < 0)
-			count = GridSize - 1;
-
-		if (fillDirection == Vector2I.Right) // row
-			return BitOps.FirstSet(RowMarked(startCell.Y), startCell.X, count);
-		if (fillDirection == Vector2I.Down) // column
-			return BitOps.FirstSet(ColumnMarked(startCell.X), startCell.Y, count);
-
-		return -1;
-	}
-
-	/// <summary>Get the last marked cell, starting from endCell, down to endCell-count. Returns -1 if none are marked.</summary>
-	public int GetLastMarked(Vector2I endCell, Vector2I fillDirection, int count = -1)
-	{
-		if (count < 0)
-			count = GridSize - 1;
-
-		uint marked = 0;
-		int offset = 0;
-		if (fillDirection == Vector2I.Right) // row
-		{
-			marked = RowMarked(endCell.Y);
-			offset = endCell.X;
-		}
-		else if (fillDirection == Vector2I.Down) // column
-		{
-			marked = ColumnMarked(endCell.X);
-			offset = endCell.Y;
-		}
-
-		return BitOps.LastSet(marked, offset - count + 1, count);
 	}
 
 	public bool ToggleCell(int x, int y)
@@ -360,15 +274,6 @@ public partial class Puzzle : RefCounted
 		}
 	}
 
-	public void FillNCells(Vector2I start, int n, Vector2I fillDir)
-	{
-		if (!IsValidCellIndex(start) || !IsValidCellIndex(start + (n * fillDir)))
-			return;
-
-		for (int i = 0; i < n; i++)
-			FillCell(start + (i * fillDir));
-	}
-
 	public bool MarkCell(Vector2I loc)
 	{
 		if (!IsValidCellIndex(loc))
@@ -378,20 +283,6 @@ public partial class Puzzle : RefCounted
 		return true;
 	}
 
-	public void MarkNCells(Vector2I start, int n, Vector2I fillDir, Vector2I endCell)
-	{
-		if (n < 1 || !IsValidCellIndex(start))
-			return;
-
-		Vector2I cell = start;
-        Vector2I end = endCell.Min(start + (n * fillDir));
-        for (int i = 0; cell <= end; i++)
-		{
-			MarkCell(cell);
-			cell += i * fillDir;
-		}		
-	}
-
 	public bool UnmarkCell(int x, int y)
 	{
 		if (!IsValidCellIndex(new Vector2I(x, y)))
@@ -399,18 +290,6 @@ public partial class Puzzle : RefCounted
 
 		_grid[x, y] &= ~CellState.Marked;
 		return true;
-	}
-
-	public int GetNumEmptyCells(Vector2I startCell, Vector2I fillDirection)
-	{
-		int count = 0;
-		Vector2I currentCell = startCell;
-		while (IsCellEmpty(currentCell))
-		{
-			count += 1;
-			currentCell += fillDirection;
-		}
-		return count;
 	}
 
 	public void MarkEmptyCells(int index, Vector2I fillDirection)
@@ -431,11 +310,6 @@ public partial class Puzzle : RefCounted
 					_grid[index, y] |= CellState.Marked;
 			}
 		}
-	}
-
-	public int CellIndexFromLocation(int x, int y)
-	{
-		return x + (y * GridSize);
 	}
 
 	public Godot.Collections.Array<Clue> GetRowClues(int index)
@@ -608,15 +482,6 @@ public partial class Puzzle : RefCounted
 	private void EmptyCell(int x, int y)
 	{
 		_grid[x, y] = 0;
-	}
-
-	private bool FillCell(Vector2I loc)
-	{
-		if (!IsValidCellIndex(loc))
-			return false;
-
-		SetFilled(loc.X, loc.Y);
-		return true;
 	}
 
 	// --- Solution / clue setup ---

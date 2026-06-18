@@ -63,7 +63,7 @@ public partial class Solver : RefCounted
 			for (int i = 0; i < gridSize; i++)
 			{
 				var stats = new ResultStats();
-				stats.Calculate(puzzle.RowFilledBits(i), puzzle.SolutionRowFilledBits(i), gridSize);
+				stats.Calculate(puzzle.RowFilledBits(i), puzzle.SolutionRowFilledBits(i));
 				correct += stats.Correct;
 				diff += stats.Diff;
 				solBits += stats.SolutionBits;
@@ -221,7 +221,7 @@ public partial class Solver : RefCounted
 
 		// the current row/column may have been solved by previous iterations,
 		// so we should check it before we try to do any work to it
-		if (!_tracker.IsSolved(iterationDirection, index) && IsLineSolved(puzzle, index, iterationDirection))
+		if (!_tracker.IsSolved(iterationDirection, index) && puzzle.IsLineSolved(index, fillDirection))
 		{
 			_tracker.MarkSolved(iterationDirection, index);
 
@@ -243,15 +243,6 @@ public partial class Solver : RefCounted
 		}
 
 		return result;
-	}
-
-	private static bool IsLineSolved(Puzzle puzzle, int index, Vector2I iterDirection)
-	{
-		if (iterDirection == Vector2I.Down)
-			return puzzle.IsRowSolved(index);
-		if (iterDirection == Vector2I.Right)
-			return puzzle.IsColumnSolved(index);
-		return false;
 	}
 
 	/// <summary>Returns true if the row/column is solved by this.</summary>
@@ -281,7 +272,8 @@ public partial class Solver : RefCounted
 			return true;
 		}
 
-        return IsLineSolved(puzzle, index, iterationDirection);
+        // the check above already returned true if this line was solved, so it isn't
+        return false;
 	}
 
 	#endregion "Private" solver functions
@@ -391,21 +383,13 @@ public partial class Solver : RefCounted
 	/// <summary>Per-line correctness statistics, derived from the current vs. solution bitmasks.</summary>
 	private sealed class ResultStats
 	{
-		public int Full { get; private set; }
 		public int Correct { get; private set; }
-		public int IncorrectlyFilled { get; private set; }
-		public int Missing { get; private set; }
 		public int Diff { get; private set; }
 		public int SolutionBits { get; private set; }
 
-		public void Calculate(uint current, uint solution, int width)
+		public void Calculate(uint current, uint solution)
 		{
-			uint full = (1u << width) - 1;
-
-			Full = (int)full;
 			Correct = BitOps.PopCount(current & solution);
-			IncorrectlyFilled = BitOps.PopCount(current & ~solution & full);
-			Missing = BitOps.PopCount(~current & solution & full);
 			Diff = BitOps.PopCount(current ^ solution);
 			SolutionBits = BitOps.PopCount(solution);
 		}
