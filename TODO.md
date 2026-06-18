@@ -20,12 +20,9 @@
 - [ ] lookup/guess after LineSolve
 	- [ ] use feasibility to decide where to start "guessing"
 
-# CLEANUP
-- [ ] refactor `get_array_bounds` to share code
-
 # MAYBE
 - [ ] make `is_row_solved` more sophisticated
 
 # OPTIMIZE
-- [ ] stack of "lines to solve" instead of just looping through all
+- [x] stack of "lines to solve" instead of just looping through all
 - [ ] cache line starts/ends
