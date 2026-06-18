@@ -6,8 +6,9 @@ using System.Linq;
 
 /// <summary>
 /// Headless benchmark harness: loads a random sample of puzzles, then runs a full solve over all of
-/// them <see cref="BenchmarkRuns"/> times, printing aggregate statistics and appending a results row
-/// per run. A min/median/avg timing summary across the runs is printed at the end.
+/// them <see cref="BenchmarkRuns"/> times. The solve is deterministic, so the correctness/line stats
+/// are reported once for the batch; the timing is summarized across all runs (min/median/max/avg), and
+/// a single results row (timing = median) is appended at the end.
 /// </summary>
 public partial class FullSolve : Node
 {
@@ -23,8 +24,8 @@ public partial class FullSolve : Node
 	[Export]
 	public PackedScene SolverScene { get; set; }
 
-	// How many times to run the full solve over the loaded puzzles (minimum 1). Each run is timed and
-	// logged; a min/median/avg timing summary across runs is printed at the end.
+	// How many times to run the full solve over the loaded puzzles (minimum 1). Each run is timed; the
+	// stats are reported once with timing summarized (min/median/max/avg) across all runs.
 	[Export]
 	public int BenchmarkRuns { get; set; } = 5;
 
@@ -34,7 +35,7 @@ public partial class FullSolve : Node
 		Random rand = new Random();
 		string[] samplePuzzleFiles = [];
         if (OnlySolved)
-			samplePuzzleFiles = ["rand64", "rand5001", "rand5002", "rand3884", "rand3915", "rand4564", "rand2181", "rand4473", "rand2941", "rand479", "rand2165", "rand363", "rand373", "rand1538", "rand603", "rand2104", "rand3149", "rand2921", "rand2872", "rand2830", "rand450", "rand343"];
+			samplePuzzleFiles = ["rand64", "rand5001", "rand3884", "rand3915", "rand4564", "rand2181", "rand4473", "rand2941", "rand479", "rand2165", "rand363", "rand373", "rand1538", "rand603", "rand2104", "rand3149", "rand2921", "rand2872", "rand2830", "rand450", "rand343"];
 		else
 			samplePuzzleFiles = DirAccess.GetFilesAt(SamplePuzzlesPath);
 
@@ -78,29 +79,28 @@ public partial class FullSolve : Node
 			count += 1;
 		}
 
+		// The solve is deterministic, so every pass produces identical correctness/line stats; only the
+		// timing varies. Run the batch to collect per-pass times, then report the stats once with the
+		// timing summarized across all runs.
 		int runs = Math.Max(BenchmarkRuns, 1);
 		var times = new double[runs];
+		RunStats stats = null;
 		for (int run = 0; run < runs; run++)
 		{
-			GD.Print($"\n=== Full solve run {run + 1}/{runs} ===");
-			times[run] = RunFullSolve(samplePuzzles);
+			stats = RunFullSolve(samplePuzzles);
+			times[run] = stats.ElapsedMicroseconds;
 		}
 
-		if (runs > 1)
-		{
-			double[] sorted = (double[])times.Clone();
-			Array.Sort(sorted);
-			GD.Print($"\n=== Timing across {runs} runs ===  min={sorted[0]:F1}  median={sorted[runs / 2]:F1}  max={sorted[runs - 1]:F1}  avg={times.Average():F1} microsecs");
-		}
+		Report(stats, times);
 
 		GetTree().Quit();
 	}
 
 	/// <summary>
-	/// Resets and solves every loaded puzzle once, prints aggregate statistics, and appends a row to
-	/// the results file. Returns the total solve time for this pass, in microseconds.
+	/// Resets and solves every loaded puzzle once, gathering aggregate statistics for the pass.
+	/// Returns the stats (including this pass's elapsed time); does not print or log.
 	/// </summary>
-	private double RunFullSolve(Puzzle[] samplePuzzles)
+	private RunStats RunFullSolve(Puzzle[] samplePuzzles)
 	{
 		int totalRun = 0;
 		int totalSolved = 0;
@@ -134,8 +134,6 @@ public partial class FullSolve : Node
 		int unsolvedMaxLines = 0;
 		long unsolvedSumLines = 0;
 
-
-        int totalCells = 900;
 		long startTime = Stopwatch.GetTimestamp();
 		for (int puzzleIndex = 0; puzzleIndex < samplePuzzles.Length; puzzleIndex++)
 		{
@@ -223,47 +221,107 @@ public partial class FullSolve : Node
 		}
 		double elapsedMicroseconds = Stopwatch.GetElapsedTime(startTime).TotalMicroseconds;
 
-		if (totalRun <= 0)
+		var stats = new RunStats
 		{
-			GD.Print("Didn't run any solvers");
-			return elapsedMicroseconds;
-		}
+			ElapsedMicroseconds = elapsedMicroseconds,
+			TotalRun = totalRun,
+		};
+
+		if (totalRun <= 0)
+			return stats;
 
 		avgCorFillPct /= totalRun;
 		avgSolPct /= totalRun;
 		avgDiff /= totalRun;
 
+		stats.TotalSolved = totalSolved;
+		stats.SolvedPuzzles = solvedPuzzles;
+
+		stats.MinCorFillPct = minCorFillPct;
+		stats.MaxCorFillPct = maxCorFillPct;
+		stats.AvgCorFillPct = avgCorFillPct;
+		stats.MinCorFillPuzzle = minCorFillPuzzle;
+		stats.MaxCorFillPuzzle = maxCorFillPuzzle;
+
+		stats.MinSolPct = minSolPct;
+		stats.MaxSolPct = maxSolPct;
+		stats.AvgSolPct = avgSolPct;
+		stats.MinSolPuzzle = minSolPuzzle;
+		stats.MaxSolPuzzle = maxSolPuzzle;
+
+		stats.MinDiff = minDiff;
+		stats.MaxDiff = maxDiff;
+		stats.AvgDiff = avgDiff;
+
+		stats.SolvedMinLines = solvedMinLines;
+		stats.SolvedMaxLines = solvedMaxLines;
+		stats.SolvedSumLines = solvedSumLines;
+		stats.UnsolvedMinLines = unsolvedMinLines;
+		stats.UnsolvedMaxLines = unsolvedMaxLines;
+		stats.UnsolvedSumLines = unsolvedSumLines;
+
+		return stats;
+	}
+
+	/// <summary>
+	/// Prints the aggregate stats once for the whole benchmark batch and appends a single results row.
+	/// Correctness/line stats come from <paramref name="stats"/> (identical across passes); the timing
+	/// is summarized across all <paramref name="times"/> (min/median/max/avg), since only timing varies.
+	/// </summary>
+	private void Report(RunStats stats, double[] times)
+	{
+		if (stats.TotalRun <= 0)
+		{
+			GD.Print("Didn't run any solvers");
+			return;
+		}
+
+		const int totalCells = 900;
+		int totalRun = stats.TotalRun;
+		int totalSolved = stats.TotalSolved;
+		int unsolvedRun = totalRun - totalSolved;
+
+		// only timing varies between passes, so summarize it across the batch
+		double[] sorted = (double[])times.Clone();
+		Array.Sort(sorted);
+		double minTime = sorted[0];
+		double medianTime = sorted[sorted.Length / 2];
+		double maxTime = sorted[sorted.Length - 1];
+		double avgTime = times.Average();
+
 		if (!OnlySolved)
 		{
 			GD.Print($"Solved {totalSolved} of {totalRun} puzzles");
-			GD.Print($"Solved Puzzles:[\n{string.Join("\n", solvedPuzzles.Where(p => p > 0))}]");
+			GD.Print($"Solved Puzzles:[\n{string.Join("\n", stats.SolvedPuzzles.Where(p => p > 0))}]");
 		}
 
-		GD.Print($"Total Solve Time: {elapsedMicroseconds:F1} microsecs");
-		GD.Print($"Average solve time: {elapsedMicroseconds / totalRun:F2} microsecs");
+		if (times.Length > 1)
+			GD.Print($"\nSolve time over {times.Length} runs (microsecs): min={minTime:F1}  median={medianTime:F1}  max={maxTime:F1}  avg={avgTime:F1}");
+		else
+			GD.Print($"\nTotal Solve Time: {medianTime:F1} microsecs");
+		GD.Print($"Average solve time (median run): {medianTime / totalRun:F2} microsecs");
 
 		if (!OnlySolved)
 		{
-			GD.Print($"\nMin Correctly Filled Cells: {minCorFillPct * 100:F2}%, Puzzle - {minCorFillPuzzle}");
-			GD.Print($"Max Correctly Filled Cells: {maxCorFillPct * 100:F2}%, Puzzle - {maxCorFillPuzzle}");
-			GD.Print($"Average Correctly Filled Cells: {avgCorFillPct * 100:F2}%");
+			GD.Print($"\nMin Correctly Filled Cells: {stats.MinCorFillPct * 100:F2}%, Puzzle - {stats.MinCorFillPuzzle}");
+			GD.Print($"Max Correctly Filled Cells: {stats.MaxCorFillPct * 100:F2}%, Puzzle - {stats.MaxCorFillPuzzle}");
+			GD.Print($"Average Correctly Filled Cells: {stats.AvgCorFillPct * 100:F2}%");
 
-			GD.Print($"\nMin Correct Cells: {minSolPct * 100:F2}%, Puzzle - {minSolPuzzle}");
-			GD.Print($"Max Correct Cells: {maxSolPct * 100:F2}%, Puzzle - {maxSolPuzzle}");
-			GD.Print($"Average Correct Cells: {avgSolPct * 100:F2}%");
+			GD.Print($"\nMin Correct Cells: {stats.MinSolPct * 100:F2}%, Puzzle - {stats.MinSolPuzzle}");
+			GD.Print($"Max Correct Cells: {stats.MaxSolPct * 100:F2}%, Puzzle - {stats.MaxSolPuzzle}");
+			GD.Print($"Average Correct Cells: {stats.AvgSolPct * 100:F2}%");
 
-			GD.Print($"\nMin Incorrect Cells: {(long)minDiff}/{totalCells}");
-			GD.Print($"Max Incorrect Cells: {(long)maxDiff}/{totalCells}");
-			GD.Print($"Average Incorrect Cells: {(long)avgDiff}/{totalCells}");
+			GD.Print($"\nMin Incorrect Cells: {(long)stats.MinDiff}/{totalCells}");
+			GD.Print($"Max Incorrect Cells: {(long)stats.MaxDiff}/{totalCells}");
+			GD.Print($"Average Incorrect Cells: {(long)stats.AvgDiff}/{totalCells}");
 		}
 
-		int unsolvedRun = totalRun - totalSolved;
 		if (totalSolved > 0)
-			GD.Print($"\nLines processed (solved): min={solvedMinLines}  max={solvedMaxLines}  avg={(double)solvedSumLines / totalSolved:F1}");
+			GD.Print($"\nLines processed (solved): min={stats.SolvedMinLines}  max={stats.SolvedMaxLines}  avg={(double)stats.SolvedSumLines / totalSolved:F1}");
 		else
 			GD.Print("\nLines processed (solved): n/a (none solved)");
 		if (unsolvedRun > 0)
-			GD.Print($"Lines processed (unsolved): min={unsolvedMinLines}  max={unsolvedMaxLines}  avg={(double)unsolvedSumLines / unsolvedRun:F1}");
+			GD.Print($"Lines processed (unsolved): min={stats.UnsolvedMinLines}  max={stats.UnsolvedMaxLines}  avg={(double)stats.UnsolvedSumLines / unsolvedRun:F1}");
 		else
 			GD.Print("Lines processed (unsolved): n/a (all solved)");
 
@@ -271,40 +329,64 @@ public partial class FullSolve : Node
 		if (dataFile != null)
 		{
 			dataFile.SeekEnd();
-            // Format:
-            // Date, #runs, #solved, total_time (microseconds), average_solve_time (microseconds),
-            // min/max/avg correctly filled, min/max/avg correct, min/max/avg diff
-            // min/max/avg lines processed (solved), min/max/avg lines processed (unsolved)
-            string line = string.Format(
+			// One row per benchmark batch; timing is the median across runs. Format:
+			// Date, #puzzles, #solved, median_time (microseconds), average_solve_time (microseconds),
+			// min/max/avg correctly filled, min/max/avg correct, min/max/avg diff
+			// min/max/avg lines processed (solved), min/max/avg lines processed (unsolved)
+			string line = string.Format(
 				CultureInfo.InvariantCulture,
 				"{0},{1},{2},{3},{4:F2},{5:F5},{6:F5},{7:F5},{8:F5},{9:F5},{10:F5},{11},{12},{13},{14},{15},{16:F1},{17},{18},{19:F1}",
 				DateTime.Now.ToString("s"),
 				totalRun,
 				totalSolved,
-				(long)elapsedMicroseconds,
-				elapsedMicroseconds / totalRun,
-				!OnlySolved ? minCorFillPct : -1,
-				!OnlySolved ? maxCorFillPct : -1,
-				!OnlySolved ? avgCorFillPct : -1,
-				!OnlySolved ? minSolPct : -1,
-				!OnlySolved ? maxSolPct : -1,
-				!OnlySolved ? avgSolPct : -1,
-				!OnlySolved ? (long)minDiff : -1,
-				!OnlySolved ? (long)maxDiff : -1,
-				!OnlySolved ? (long)avgDiff : -1,
-				solvedMinLines,
-				solvedMaxLines,
-                (double)solvedSumLines / totalSolved,
-				!OnlySolved ? unsolvedMinLines : -1,
-				!OnlySolved ? unsolvedMaxLines : -1,
-                !OnlySolved ? (double)unsolvedSumLines / unsolvedRun : -1);
+				(long)medianTime,
+				medianTime / totalRun,
+				!OnlySolved ? stats.MinCorFillPct : -1,
+				!OnlySolved ? stats.MaxCorFillPct : -1,
+				!OnlySolved ? stats.AvgCorFillPct : -1,
+				!OnlySolved ? stats.MinSolPct : -1,
+				!OnlySolved ? stats.MaxSolPct : -1,
+				!OnlySolved ? stats.AvgSolPct : -1,
+				!OnlySolved ? (long)stats.MinDiff : -1,
+				!OnlySolved ? (long)stats.MaxDiff : -1,
+				!OnlySolved ? (long)stats.AvgDiff : -1,
+				stats.SolvedMinLines,
+				stats.SolvedMaxLines,
+				(double)stats.SolvedSumLines / totalSolved,
+				!OnlySolved ? stats.UnsolvedMinLines : -1,
+				!OnlySolved ? stats.UnsolvedMaxLines : -1,
+				!OnlySolved ? (double)stats.UnsolvedSumLines / unsolvedRun : -1);
 			dataFile.StoreLine(line);
 		}
 		else
 		{
 			GD.Print("Can't record data");
 		}
+	}
 
-		return elapsedMicroseconds;
+	/// <summary>
+	/// Aggregate stats from one full-solve pass. The correctness/line stats are deterministic (identical
+	/// across benchmark passes); only <see cref="ElapsedMicroseconds"/> varies from pass to pass.
+	/// </summary>
+	private sealed class RunStats
+	{
+		public double ElapsedMicroseconds;
+
+		public int TotalRun;
+		public int TotalSolved;
+		public int[] SolvedPuzzles = Array.Empty<int>();
+
+		public double MinCorFillPct, MaxCorFillPct, AvgCorFillPct;
+		public string MinCorFillPuzzle = "", MaxCorFillPuzzle = "";
+
+		public double MinSolPct, MaxSolPct, AvgSolPct;
+		public string MinSolPuzzle = "", MaxSolPuzzle = "";
+
+		public double MinDiff, MaxDiff, AvgDiff;
+
+		public int SolvedMinLines, SolvedMaxLines;
+		public long SolvedSumLines;
+		public int UnsolvedMinLines, UnsolvedMaxLines;
+		public long UnsolvedSumLines;
 	}
 }
