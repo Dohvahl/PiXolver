@@ -203,7 +203,7 @@ public partial class Solver : RefCounted
 				}
 			}
 
-			if (puzzle.IsSolved())
+			if (_tracker.AllRowsSolved)
 				break;
 		}
 	}
@@ -219,9 +219,9 @@ public partial class Solver : RefCounted
 		if (clues.Count == 0 || _tracker.IsSolved(iterationDirection, index))
 			return true;
 
-		// the current row/column may have been solved by previous iterations,
-		// so we should check it before we try to do any work to it
-		if (!_tracker.IsSolved(iterationDirection, index) && puzzle.IsLineSolved(index, fillDirection))
+		// the line may already be complete (e.g. finished off by a perpendicular solve); if so just
+		// record it solved instead of running the line solver
+		if (puzzle.IsLineSolved(index, fillDirection))
 		{
 			_tracker.MarkSolved(iterationDirection, index);
 
@@ -284,9 +284,11 @@ public partial class Solver : RefCounted
         // Size of the grid
 		private int gridSize;
 
-		// "Sets" to track what we've already solved
-		private readonly System.Collections.Generic.HashSet<int> _solvedRows = new();
-		private readonly System.Collections.Generic.HashSet<int> _solvedColumns = new();
+		// per-line solved flags, plus a count of solved rows for the O(1) "is the puzzle solved?" check
+		// (all rows solved ⇒ every cell is determined ⇒ the puzzle is solved)
+		private bool[] _solvedRows = Array.Empty<bool>();
+		private bool[] _solvedColumns = Array.Empty<bool>();
+		private int _solvedRowCount;
 
 		// snapshot of the grid (per-row filled/marked bitmasks) taken at the start of RunSingle,
 		// used to detect when an iteration made no progress
@@ -306,10 +308,11 @@ public partial class Solver : RefCounted
 
 		public void Reset()
 		{
-			_solvedRows.Clear();
-			_solvedColumns.Clear();
 			ResizeState(gridSize);
 			ResizeLineSolvers(gridSize);
+			Array.Clear(_solvedRows, 0, _solvedRows.Length);
+			Array.Clear(_solvedColumns, 0, _solvedColumns.Length);
+			_solvedRowCount = 0;
 		}
 
 		public void ResizeState(int size)
@@ -318,6 +321,10 @@ public partial class Solver : RefCounted
 				_previousFilled = new uint[size];
 			if (_previousMarked.Length != size)
 				_previousMarked = new uint[size];
+			if (_solvedRows.Length != size)
+				_solvedRows = new bool[size];
+			if (_solvedColumns.Length != size)
+				_solvedColumns = new bool[size];
 		}
 
 		public void ResizeLineSolvers(int size)
@@ -362,21 +369,32 @@ public partial class Solver : RefCounted
 			return false;
 		}
 
+		/// <summary>True once every row is solved, which means the whole puzzle is solved.</summary>
+		public bool AllRowsSolved => _solvedRowCount == gridSize;
+
 		public bool IsSolved(Vector2I iterDirection, int index)
 		{
 			if (iterDirection == Vector2I.Down)
-				return _solvedRows.Contains(index);
+				return _solvedRows[index];
 			if (iterDirection == Vector2I.Right)
-				return _solvedColumns.Contains(index);
+				return _solvedColumns[index];
 			return false;
 		}
 
 		public void MarkSolved(Vector2I iterDirection, int index)
 		{
 			if (iterDirection == Vector2I.Down)
-				_solvedRows.Add(index);
+			{
+				if (!_solvedRows[index])
+				{
+					_solvedRows[index] = true;
+					_solvedRowCount++;
+				}
+			}
 			else if (iterDirection == Vector2I.Right)
-				_solvedColumns.Add(index);
+			{
+				_solvedColumns[index] = true;
+			}
 		}
 	}
 
