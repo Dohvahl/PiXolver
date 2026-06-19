@@ -1,3 +1,7 @@
+using System.Collections.Generic;
+
+namespace PiXolver.Core;
+
 public partial class Solver
 {
 	/// <summary>
@@ -27,7 +31,7 @@ public partial class Solver
 		// Clue-list cache: the Clue references and their (immutable) values are resolved across the
 		// Godot↔C# boundary once per line; only the mutable solved-flags are re-read each Configure.
 		// _cachedClues guards the cache (the clue list for a line is the same object every call).
-		private Godot.Collections.Array<Clue> _cachedClues;
+		private IReadOnlyList<Clue> _cachedClues;
 		private int _cachedCount;
 		private readonly Clue[] _clueRefs;    // cached Clue references for the current line
 		private readonly int[] _cfgValues;    // cached clue values (immutable; refreshed on cache miss)
@@ -73,7 +77,7 @@ public partial class Solver
 		}
 
 		/// <summary>Point the solver at a new line. Allocation-free.</summary>
-		public void Configure(uint filled, uint marked, Godot.Collections.Array<Clue> clues)
+		public void Configure(uint filled, uint marked, IReadOnlyList<Clue> clues)
 		{
 			// Resolve the Clue references and their (immutable) values once per line and cache them — the
 			// clue list for a line is the same object every call. Only the mutable solved-flags are

@@ -1,13 +1,14 @@
-using Godot;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+
+namespace PiXolver.Core;
 
 /// <summary>
 /// Nonogram solver. Technique names are taken from the Nonogram wiki:
 /// https://en.wikipedia.org/wiki/Nonogram
 /// </summary>
-[GlobalClass]
-public partial class Solver : RefCounted
+public partial class Solver
 {
 	private SolverData _tracker;
 
@@ -27,9 +28,9 @@ public partial class Solver : RefCounted
 
 	/// <summary>
 	/// Runs the solver until the puzzle is solved or the worklist reaches its propagation fixpoint.
-	/// Returns a dictionary describing the outcome (either <c>is_solved</c>, or fill/solved/incorrect stats).
+	/// Returns a <see cref="SolveResult"/> describing the outcome.
 	/// </summary>
-	public Godot.Collections.Dictionary Run(Puzzle puzzle, bool debug = false)
+	public SolveResult Run(Puzzle puzzle)
 	{
 		long runStart = Stopwatch.GetTimestamp();
 		_linesProcessed = 0;
@@ -39,18 +40,15 @@ public partial class Solver : RefCounted
 
 		double elapsedMicroseconds = Stopwatch.GetElapsedTime(runStart).TotalMicroseconds;
 
-		if (debug)
-			GD.Print($"Total Solve Time: {elapsedMicroseconds:F1} microsec");
-
-		var results = new Godot.Collections.Dictionary
+		var result = new SolveResult
 		{
-			{ "lines_processed", _linesProcessed },
-			{ "time_us", elapsedMicroseconds },
+			LinesProcessed = _linesProcessed,
+			TimeMicroseconds = elapsedMicroseconds,
 		};
 
 		if (puzzle.IsSolved())
 		{
-			results["is_solved"] = true;
+			result.IsSolved = true;
 		}
 		else if (puzzle.HasSolution)
 		{
@@ -69,40 +67,24 @@ public partial class Solver : RefCounted
 				solBits += stats.SolutionBits;
 			}
 
-			results["filled"] = (double)correct / solBits;
-			results["solved"] = (double)(total - diff) / total;
-			results["incorrect"] = diff;
+			result.HasStats = true;
+			result.FilledFraction = (double)correct / solBits;
+			result.SolvedFraction = (double)(total - diff) / total;
+			result.IncorrectCells = diff;
 		}
 
-		return results;
+		return result;
 	}
 
-	/// <summary>Returns true if additional iterations are required.</summary>
-	public bool RunSingle(Puzzle puzzle, int iterations, bool debug = false)
+	/// <summary>Runs one full row+column sweep. Returns true if more iterations are required.</summary>
+	public bool RunSingle(Puzzle puzzle)
 	{
-		if (debug)
-			GD.Print($"\n*** DEBUG *** Iteration {iterations} *** DEBUG ***");
-
-		// measure how long the preprocessing takes
-		long preprocessStart = Stopwatch.GetTimestamp();
-
-		int gridSize = puzzle.GridSize;
-
 		// snapshot the grid so we can tell whether this iteration makes any progress
 		_tracker.SaveState(puzzle);
-
-		if (debug)
-			GD.Print($"PreProcess Time: {Stopwatch.GetElapsedTime(preprocessStart).TotalMicroseconds:F1} microsec");
-
-		// measuring the time to solve the puzzle
-		long solutionStart = Stopwatch.GetTimestamp();
 
 		// check each set of row and column clues
 		RunRows(puzzle);
 		RunColumns(puzzle);
-
-		if (debug)
-			GD.Print($"Solution Time: {Stopwatch.GetElapsedTime(solutionStart).TotalMicroseconds:F1} microsec");
 
 		// if this iteration didn't change the state of the puzzle, we're not improving the
 		// solution, so there's no point in continuing
@@ -114,9 +96,9 @@ public partial class Solver : RefCounted
 		int gridSize = puzzle.GridSize;
 		for (int rowIndex = 0; rowIndex < gridSize; rowIndex++)
 		{
-			uint filled = puzzle.GetFilledCells(rowIndex, Vector2I.Right, 0, gridSize);
-			uint marked = puzzle.GetMarkedCells(rowIndex, Vector2I.Right, 0, gridSize);
-			Try(puzzle, rowIndex, puzzle.GetRowClues(rowIndex), Vector2I.Down, Vector2I.Right, filled, marked);
+			uint filled = puzzle.GetFilledCells(rowIndex, Vec2I.Right, 0, gridSize);
+			uint marked = puzzle.GetMarkedCells(rowIndex, Vec2I.Right, 0, gridSize);
+			Try(puzzle, rowIndex, puzzle.GetRowClues(rowIndex), Vec2I.Down, Vec2I.Right, filled, marked);
 		}
 	}
 
@@ -125,9 +107,9 @@ public partial class Solver : RefCounted
 		int gridSize = puzzle.GridSize;
 		for (int columnIndex = 0; columnIndex < gridSize; columnIndex++)
 		{
-			uint filled = puzzle.GetFilledCells(columnIndex, Vector2I.Down, 0, gridSize);
-			uint marked = puzzle.GetMarkedCells(columnIndex, Vector2I.Down, 0, gridSize);
-			Try(puzzle, columnIndex, puzzle.GetColClues(columnIndex), Vector2I.Right, Vector2I.Down, filled, marked);
+			uint filled = puzzle.GetFilledCells(columnIndex, Vec2I.Down, 0, gridSize);
+			uint marked = puzzle.GetMarkedCells(columnIndex, Vec2I.Down, 0, gridSize);
+			Try(puzzle, columnIndex, puzzle.GetColClues(columnIndex), Vec2I.Right, Vec2I.Down, filled, marked);
 		}
 	}
 
@@ -168,8 +150,8 @@ public partial class Solver : RefCounted
 
 			bool isRow = id < gridSize;
 			int index = isRow ? id : id - gridSize;
-			Vector2I iterationDirection = isRow ? Vector2I.Down : Vector2I.Right;
-			Vector2I fillDirection = isRow ? Vector2I.Right : Vector2I.Down;
+			Vec2I iterationDirection = isRow ? Vec2I.Down : Vec2I.Right;
+			Vec2I fillDirection = isRow ? Vec2I.Right : Vec2I.Down;
 
 			// already solved by an earlier pop; nothing left to propagate from this line
 			if (_tracker.IsSolved(iterationDirection, index))
@@ -189,7 +171,7 @@ public partial class Solver : RefCounted
 
 			// enqueue the perpendicular line through each changed cell: the perpendicular of a row is
 			// the column at the changed position, and vice versa
-			Vector2I perpIterDir = isRow ? Vector2I.Right : Vector2I.Down;
+			Vec2I perpIterDir = isRow ? Vec2I.Right : Vec2I.Down;
 			uint bits = changed;
 			while (bits != 0)
 			{
@@ -217,7 +199,7 @@ public partial class Solver : RefCounted
 	#region "Private" solver functions
 
 	/// <summary>Returns the cells this newly determined (filled or marked), in line-local coordinates.</summary>
-	private uint Try(Puzzle puzzle, int index, Godot.Collections.Array<Clue> clues, Vector2I iterationDirection, Vector2I fillDirection, uint filled, uint marked)
+	private uint Try(Puzzle puzzle, int index, IReadOnlyList<Clue> clues, Vec2I iterationDirection, Vec2I fillDirection, uint filled, uint marked)
 	{
 		_linesProcessed++;
 
@@ -246,7 +228,7 @@ public partial class Solver : RefCounted
 	}
 
 	/// <summary>Returns the cells this newly determined (filled or marked), in line-local coordinates.</summary>
-	private uint TryLineSolve(Puzzle puzzle, int index, Godot.Collections.Array<Clue> clues, Vector2I iterationDirection, Vector2I fillDirection, uint filledCells, uint markedCells)
+	private uint TryLineSolve(Puzzle puzzle, int index, IReadOnlyList<Clue> clues, Vec2I iterationDirection, Vec2I fillDirection, uint filledCells, uint markedCells)
 	{
 		uint occupied = filledCells | markedCells;
 
@@ -345,9 +327,9 @@ public partial class Solver : RefCounted
 		}
 
 		/// <summary>The cached line solver for a given row (Down) or column (Right).</summary>
-		public DPLineSolver GetLineSolver(Vector2I iterDirection, int index)
+		public DPLineSolver GetLineSolver(Vec2I iterDirection, int index)
 		{
-			return iterDirection == Vector2I.Down ? _rowSolvers[index] : _columnSolvers[index];
+			return iterDirection == Vec2I.Down ? _rowSolvers[index] : _columnSolvers[index];
 		}
 
 		/// <summary>Snapshot the puzzle's current grid (per-row filled/marked bitmasks).</summary>
@@ -375,18 +357,18 @@ public partial class Solver : RefCounted
 		/// <summary>True once every row is solved, which means the whole puzzle is solved.</summary>
 		public bool AllRowsSolved => _solvedRowCount == gridSize;
 
-		public bool IsSolved(Vector2I iterDirection, int index)
+		public bool IsSolved(Vec2I iterDirection, int index)
 		{
-			if (iterDirection == Vector2I.Down)
+			if (iterDirection == Vec2I.Down)
 				return _solvedRows[index];
-			if (iterDirection == Vector2I.Right)
+			if (iterDirection == Vec2I.Right)
 				return _solvedColumns[index];
 			return false;
 		}
 
-		public void MarkSolved(Vector2I iterDirection, int index)
+		public void MarkSolved(Vec2I iterDirection, int index)
 		{
-			if (iterDirection == Vector2I.Down)
+			if (iterDirection == Vec2I.Down)
 			{
 				if (!_solvedRows[index])
 				{
@@ -394,7 +376,7 @@ public partial class Solver : RefCounted
 					_solvedRowCount++;
 				}
 			}
-			else if (iterDirection == Vector2I.Right)
+			else if (iterDirection == Vec2I.Right)
 			{
 				_solvedColumns[index] = true;
 			}

@@ -1,10 +1,10 @@
-using Godot;
+namespace PiXolver.Core;
 
 /// <summary>
-/// A single clue (a run of filled cells) within a row or column. Instances are handed to the
-/// GDScript UI layer, so this is a <see cref="RefCounted"/> with public, GDScript-callable members.
+/// A single clue (a run of filled cells) within a row or column. Plain data; the Godot UI layer wraps
+/// these for display.
 /// </summary>
-public partial class Clue : RefCounted
+public class Clue
 {
 	/// <summary>Index of the clue in the clues array.</summary>
 	public int Index { get; private set; }
@@ -17,11 +17,6 @@ public partial class Clue : RefCounted
 
 	/// <summary>Whether this clue has been filled in.</summary>
 	public bool Solved { get; private set; }
-
-	// Required parameterless constructor for Godot object instantiation.
-	public Clue()
-	{
-	}
 
 	public Clue(int index, int start, int value)
 	{

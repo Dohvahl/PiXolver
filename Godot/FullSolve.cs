@@ -3,6 +3,7 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using Core = PiXolver.Core;
 
 /// <summary>
 /// Headless benchmark harness: loads a random sample of puzzles, then runs a full solve over all of
@@ -49,7 +50,7 @@ public partial class FullSolve : Node
 			(samplePuzzleFiles[j], samplePuzzleFiles[k]) = (samplePuzzleFiles[k], samplePuzzleFiles[j]);
 		}
 
-		var samplePuzzles = new Puzzle[targetCount];
+		var samplePuzzles = new Core.Puzzle[targetCount];
 		int count = 0;
 		for (int j = 0; j < targetCount; j++)
 		{
@@ -67,7 +68,7 @@ public partial class FullSolve : Node
 				continue;
 
 			// A clues-only file starts with an "x y" header; a solution file starts with a row of 0/1s.
-			var puzzle = new Puzzle();
+			var puzzle = new Core.Puzzle();
 			string firstLine = text.Split('\n')[0].Trim();
 			string[] header = firstLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 			if (header.Length == 2 && int.TryParse(header[0], out _) && int.TryParse(header[1], out _))
@@ -100,7 +101,7 @@ public partial class FullSolve : Node
 	/// Resets and solves every loaded puzzle once, gathering aggregate statistics for the pass.
 	/// Returns the stats (including this pass's elapsed time); does not print or log.
 	/// </summary>
-	private RunStats RunFullSolve(Puzzle[] samplePuzzles)
+	private RunStats RunFullSolve(Core.Puzzle[] samplePuzzles)
 	{
 		int totalRun = 0;
 		int totalSolved = 0;
@@ -137,7 +138,7 @@ public partial class FullSolve : Node
 		long startTime = Stopwatch.GetTimestamp();
 		for (int puzzleIndex = 0; puzzleIndex < samplePuzzles.Length; puzzleIndex++)
 		{
-			Puzzle puzzle = samplePuzzles[puzzleIndex];
+			Core.Puzzle puzzle = samplePuzzles[puzzleIndex];
 			if (puzzle == null)
 				continue;
 
@@ -145,13 +146,13 @@ public partial class FullSolve : Node
 			puzzle.Reset();
 
             // set up the solver
-            var solver = new Solver();
+            var solver = new Core.Solver();
 			solver.Init(puzzle.GridSize);
 
-			Godot.Collections.Dictionary results = solver.Run(puzzle, false);
+			Core.SolveResult results = solver.Run(puzzle);
 
-			int linesProcessed = results.TryGetValue("lines_processed", out Variant linesValue) ? linesValue.AsInt32() : 0;
-			if (results.ContainsKey("is_solved"))
+			int linesProcessed = results.LinesProcessed;
+			if (results.IsSolved)
 			{
 				solvedMinLines = Mathf.Min(solvedMinLines, linesProcessed);
 				solvedMaxLines = Mathf.Max(solvedMaxLines, linesProcessed);
@@ -164,7 +165,7 @@ public partial class FullSolve : Node
 				unsolvedSumLines += linesProcessed;
 			}
 
-			if (results.ContainsKey("is_solved"))
+			if (results.IsSolved)
 			{
                 // each puzzle is named "rand####", so we can extract the number by getting the substring after "rand" and parsing it as an int
 				int indexOfRand = puzzle.PuzzleFile.LastIndexOf("rand");
@@ -179,11 +180,11 @@ public partial class FullSolve : Node
 
 				totalSolved++;
 			}
-			else if (puzzle.HasSolution)
+			else if (results.HasStats)
 			{
-				double pctFilled = results.TryGetValue("filled", out Variant filledValue) ? filledValue.AsDouble() : 0.0;
-				double pctSolved = results.TryGetValue("solved", out Variant solvedValue) ? solvedValue.AsDouble() : 0.0;
-				int incorrect = results.TryGetValue("incorrect", out Variant incorrectValue) ? incorrectValue.AsInt32() : 0;
+				double pctFilled = results.FilledFraction;
+				double pctSolved = results.SolvedFraction;
+				int incorrect = results.IncorrectCells;
 
 				if (pctFilled < minCorFillPct)
 				{

@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://balk2vcvl4m0y"]
 
-[ext_resource type="Script" uid="uid://cq8fsv2rn4x7p" path="res://FullSolve.cs" id="1_ssq6r"]
+[ext_resource type="Script" uid="uid://cq8fsv2rn4x7p" path="res://Godot/FullSolve.cs" id="1_ssq6r"]
 [ext_resource type="PackedScene" uid="uid://1gnjb8s457r2" path="res://solver.tscn" id="2_5fay3"]
 
 [node name="FullSolve" type="Node" unique_id=688364892]
@@ -8,4 +8,4 @@ script = ExtResource("1_ssq6r")
 MaxPuzzles = 5000
 OnlySolved = true
 SolverScene = ExtResource("2_5fay3")
-BenchmarkRuns = 0
+BenchmarkRuns = 1000

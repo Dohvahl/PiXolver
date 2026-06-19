@@ -1,5 +1,7 @@
 using System.Numerics;
 
+namespace PiXolver.Core;
+
 /// <summary>
 /// Bit-twiddling helpers for the puzzle's row/column bitmasks. Values are unsigned 32-bit
 /// (<see cref="uint"/>): a grid line is at most 32 cells, and unsigned types avoid the
