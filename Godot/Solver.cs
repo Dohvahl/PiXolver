@@ -10,6 +10,10 @@ public partial class Solver : RefCounted
 {
 	private readonly Core.Solver _core = new();
 
+	/// <summary>Max guess depth for the iterative-deepening search (0 disables search).</summary>
+	[Export]
+	public int MaxSearchDepth { get => _core.MaxSearchDepth; set => _core.MaxSearchDepth = value; }
+
 	public void Init(int gridSize) => _core.Init(gridSize);
 	public void Reset() => _core.Reset();
 
@@ -24,6 +28,7 @@ public partial class Solver : RefCounted
 		{
 			{ "lines_processed", r.LinesProcessed },
 			{ "time_us", r.TimeMicroseconds },
+			{ "depth", r.DepthReached },
 		};
 
 		if (r.IsSolved)

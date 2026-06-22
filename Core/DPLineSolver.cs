@@ -27,7 +27,7 @@ public partial class Solver
 		private int _clueOffset;        // index of the first active clue in the configured list
 
 		// Reusable scratch, sized to the worst case at construction and never reallocated.
-		private readonly int[] _clues;        // configured clue lengths (_count valid)
+		private readonly int[] _clues;        // configured clue lengths (_numClues valid)
 		// Clue-list cache: the Clue references and their (immutable) values are resolved across the
 		// Godot↔C# boundary once per line; only the mutable solved-flags are re-read each Configure.
 		// _cachedClues guards the cache (the clue list for a line is the same object every call).
@@ -52,7 +52,7 @@ public partial class Solver
 		// The configured line.
 		private uint _filled;
 		private uint _marked;
-		private int _count;
+		private int _numClues;
 
 		// Inputs the DP is currently running against (the forward line, then the mirrored line).
 		private uint _activeFilled;
@@ -131,9 +131,9 @@ public partial class Solver
 			_winStart = windowStart;
 			_clueOffset = lo;
 			_size = windowEnd > windowStart ? windowEnd - windowStart : 0;
-			_count = hi >= lo ? hi - lo + 1 : 0;
+			_numClues = hi >= lo ? hi - lo + 1 : 0;
 
-			for (int i = 0; i < _count; i++)
+			for (int i = 0; i < _numClues; i++)
 				_clues[i] = _cfgValues[lo + i];
 
 			uint windowMask = _size > 0 ? BitOps.FieldMask(_size) : 0u;
@@ -156,7 +156,7 @@ public partial class Solver
 			uint filledBits = 0;
 			uint solvedBits = 0;
 			uint covered = 0; // every cell a clue could possibly occupy
-			for (int i = 0; i < _count; i++)
+			for (int i = 0; i < _numClues; i++)
 			{
 				if (_leftStarts[i] < 0 || _rightStarts[i] < 0)
 				{
@@ -185,22 +185,37 @@ public partial class Solver
 			solvedClues = solvedBits << _clueOffset;
 		}
 
-        public void DeduceComplete(out uint forcedFilled, out uint forcedEmpty, out uint solvedClues)
+        /// <summary>
+        /// Deduces forced cells for the line. Returns false if the line is infeasible (no clue
+        /// arrangement fits the current cells) — i.e. a contradiction; the out masks are 0 in that case.
+        /// </summary>
+        public bool DeduceComplete(out uint forcedFilled, out uint forcedEmpty, out uint solvedClues)
         {
             SetActive(_filled, _marked, _clues);   // forward line; bumps the generation to reset both memos
+
+            // No arrangement of the clues covers every filled cell within the window → this line
+            // contradicts the current cells. Bail without deducing: returning forcedEmpty over the whole
+            // window (as the loop below would) is only valid when an arrangement exists.
+            if (!SuffixFeasible(0, 0))
+            {
+                forcedFilled = 0;
+                forcedEmpty = 0;
+                solvedClues = 0;
+                return false;
+            }
 
             // everFilled: cells some feasible placement covers. Also count starts per clue.
             uint everFilled = 0;
             solvedClues = 0;
-            for (int i = 0; i < _count; i++)
+            for (int i = 0; i < _numClues; i++)
             {
-                int len = _clues[i];
+                int clue = _clues[i];
                 int feasibleStarts = 0;
-                for (int s = 0; s + len <= _size; s++)
+                for (int s = 0; s + clue <= _size; s++)
                 {
-                    if (Fits(s, len) && PrefixFeasible(i, s - 1) && SuffixFeasible(i + 1, s + len + 1))
+                    if (Fits(s, clue) && PrefixFeasible(i, s - 1) && SuffixFeasible(i + 1, s + clue + 1))
                     {
-                        everFilled |= RangeMask(s, s + len);
+                        everFilled |= RangeMask(s, s + clue);
                         feasibleStarts++;
                     }
                 }
@@ -214,7 +229,7 @@ public partial class Solver
             {
                 if (FilledAt(p))
                     continue; // a filled cell is never empty
-                for (int i = 0; i <= _count; i++)
+                for (int i = 0; i <= _numClues; i++)
                 {
                     if (PrefixFeasible(i, p) && SuffixFeasible(i, p + 1))
                     {
@@ -228,8 +243,9 @@ public partial class Solver
             forcedFilled = (everFilled & ~everEmpty) << _winStart;            // filled in some arrangement, empty in none → in all
             forcedEmpty = (RangeMask(0, _size) & ~everFilled) << _winStart;   // no clue ever covers it → empty in all
             solvedClues <<= _clueOffset;
+            return true;
         }
-        
+
 		private void ComputeLeftmost()
 		{
 			SetActive(_filled, _marked, _clues);
@@ -238,15 +254,15 @@ public partial class Solver
 
 		private void ComputeRightmost()
 		{
-			for (int i = 0; i < _count; i++)
-				_reversedClues[i] = _clues[_count - 1 - i];
+			for (int i = 0; i < _numClues; i++)
+				_reversedClues[i] = _clues[_numClues - 1 - i];
 
 			SetActive(Reverse(_filled), Reverse(_marked), _reversedClues);
 			Solve(_mirrorStarts);
 
-			for (int i = 0; i < _count; i++)
+			for (int i = 0; i < _numClues; i++)
 			{
-				int mirrored = _mirrorStarts[_count - 1 - i];
+				int mirrored = _mirrorStarts[_numClues - 1 - i];
 				_rightStarts[i] = mirrored < 0 ? -1 : _size - mirrored - _clues[i];
 			}
 		}
@@ -264,7 +280,7 @@ public partial class Solver
 		private void Solve(int[] starts)
 		{
 			int cursor = 0;
-			for (int i = 0; i < _count; i++)
+			for (int i = 0; i < _numClues; i++)
 			{
 				int len = _activeClues[i];
 				int p = cursor;
@@ -272,7 +288,7 @@ public partial class Solver
 				{
 					if (FilledAt(p) || p >= _size) // can't skip a filled cell, or ran off the end
 					{
-						for (int j = i; j < _count; j++)
+						for (int j = i; j < _numClues; j++)
 							starts[j] = -1;
 						return;
 					}
@@ -312,7 +328,7 @@ public partial class Solver
 		/// <summary>Are clues[i..] placeable within cells [p, size), covering all filled cells there?</summary>
 		private bool SuffixFeasible(int i, int p)
 		{
-			if (i == _count)
+			if (i == _numClues)
                 // no clues left to check, so just verify no filled cells remain at the end of the line
                 return (_activeFilled & RangeMask(p, _size)) == 0;
 			if (p > _size)

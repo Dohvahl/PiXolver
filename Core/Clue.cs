@@ -36,6 +36,12 @@ public class Clue
 		Solved = true;
 	}
 
+	// Set the solved flag directly (used by the search's checkpoint/restore).
+	internal void SetSolved(bool value)
+	{
+		Solved = value;
+	}
+
 	public void ToggleSolved()
 	{
 		Solved = !Solved;

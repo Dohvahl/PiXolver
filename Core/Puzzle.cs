@@ -16,7 +16,7 @@ namespace PiXolver.Core;
 public partial class Puzzle
 {
 	[Flags]
-	private enum CellState : byte
+	internal enum CellState : byte
 	{
 		Empty = 0,
 		Filled = 1,
@@ -393,6 +393,81 @@ public partial class Puzzle
 	internal uint SolutionRowFilledBits(int row) => SolutionRowFilled(row);
 	internal int RowMaxClueValue(int row) => _rowClues[row].MaxClueValue;
 	internal int ColumnMaxClueValue(int col) => _columnClues[col].MaxClueValue;
+
+	// --- Search support: single-cell writes, completion checks, and checkpoint/restore ---
+
+	/// <summary>Sets a single cell filled (used when the search assumes a value).</summary>
+	internal void SetCellFilled(int x, int y) => _grid[x, y] = CellState.Filled;
+
+	/// <summary>Marks a single cell empty (used when the search assumes a value).</summary>
+	internal void MarkCellEmpty(int x, int y) => _grid[x, y] = CellState.Marked;
+
+	/// <summary>True if every cell is decided (filled or marked) — none left undecided.</summary>
+	internal bool IsFullyDecided()
+	{
+		for (int x = 0; x < GridSize; x++)
+			for (int y = 0; y < GridSize; y++)
+				if (_grid[x, y] == CellState.Empty)
+					return false;
+		return true;
+	}
+
+	/// <summary>Finds the first undecided (empty) cell. Returns false if the grid is fully decided.</summary>
+	internal bool TryFindUndecidedCell(out int x, out int y)
+	{
+		for (int yy = 0; yy < GridSize; yy++)
+			for (int xx = 0; xx < GridSize; xx++)
+				if (_grid[xx, yy] == CellState.Empty)
+				{
+					x = xx;
+					y = yy;
+					return true;
+				}
+		x = -1;
+		y = -1;
+		return false;
+	}
+
+	/// <summary>Opaque grid + clue-solved snapshot for the search's checkpoint/restore (CellState is private).</summary>
+	internal sealed class Snapshot
+	{
+		public CellState[,] Grid;
+		public bool[] ClueSolved;
+	}
+
+	internal Snapshot CreateSnapshot() => new()
+	{
+		Grid = new CellState[GridSize, GridSize],
+		ClueSolved = new bool[TotalClueCount()],
+	};
+
+	internal void CaptureInto(Snapshot s)
+	{
+		Array.Copy(_grid, s.Grid, _grid.Length);
+		int k = 0;
+		for (int i = 0; i < GridSize; i++)
+			foreach (Clue c in _rowClues[i].Clues) s.ClueSolved[k++] = c.IsSolved();
+		for (int i = 0; i < GridSize; i++)
+			foreach (Clue c in _columnClues[i].Clues) s.ClueSolved[k++] = c.IsSolved();
+	}
+
+	internal void RestoreFrom(Snapshot s)
+	{
+		Array.Copy(s.Grid, _grid, _grid.Length);
+		int k = 0;
+		for (int i = 0; i < GridSize; i++)
+			foreach (Clue c in _rowClues[i].Clues) c.SetSolved(s.ClueSolved[k++]);
+		for (int i = 0; i < GridSize; i++)
+			foreach (Clue c in _columnClues[i].Clues) c.SetSolved(s.ClueSolved[k++]);
+	}
+
+	private int TotalClueCount()
+	{
+		int n = 0;
+		for (int i = 0; i < GridSize; i++)
+			n += _rowClues[i].Clues.Count + _columnClues[i].Clues.Count;
+		return n;
+	}
 
 	#region "Private" Functions
 

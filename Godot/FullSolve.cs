@@ -16,7 +16,7 @@ public partial class FullSolve : Node
 	private const string DataFilePath = "res://results";
 	private const string SamplePuzzlesPath = "res://SamplePuzzles/";
 
-	[Export(PropertyHint.Range, "10,5000")]
+	[Export(PropertyHint.Range, "1,5000")]
 	public int MaxPuzzles { get; set; } = 10;
 
 	[Export]
@@ -29,6 +29,10 @@ public partial class FullSolve : Node
 	// stats are reported once with timing summarized (min/median/max/avg) across all runs.
 	[Export]
 	public int BenchmarkRuns { get; set; } = 5;
+
+	// Max guess depth for the solver's iterative-deepening search (0 = line propagation only).
+	[Export]
+	public int MaxSearchDepth { get; set; } = 10;
 
 	// load a random sample of puzzles, then solve them all BenchmarkRuns times
 	public override void _Ready()
@@ -135,6 +139,14 @@ public partial class FullSolve : Node
 		int unsolvedMaxLines = 0;
 		long unsolvedSumLines = 0;
 
+		// search depth reached, across all puzzles (0 = solved by line propagation, no guessing)
+		int depthMin = int.MaxValue;
+		int depthMax = 0;
+		long depthSum = 0;
+
+		// whether any unsolved puzzle had a known solution to score correctness against
+		bool hasCorrectness = false;
+
 		long startTime = Stopwatch.GetTimestamp();
 		for (int puzzleIndex = 0; puzzleIndex < samplePuzzles.Length; puzzleIndex++)
 		{
@@ -148,8 +160,11 @@ public partial class FullSolve : Node
             // set up the solver
             var solver = new Core.Solver();
 			solver.Init(puzzle.GridSize);
+			solver.MaxSearchDepth = MaxSearchDepth;
 
-			Core.SolveResult results = solver.Run(puzzle);
+			//GD.Print($"Solving puzzle {puzzleIndex + 1}/{samplePuzzles.Length} ({puzzle.PuzzleFile})...");
+
+            Core.SolveResult results = solver.Run(puzzle);
 
 			int linesProcessed = results.LinesProcessed;
 			if (results.IsSolved)
@@ -164,6 +179,11 @@ public partial class FullSolve : Node
 				unsolvedMaxLines = Mathf.Max(unsolvedMaxLines, linesProcessed);
 				unsolvedSumLines += linesProcessed;
 			}
+
+			int depth = results.DepthReached;
+			depthMin = Mathf.Min(depthMin, depth);
+			depthMax = Mathf.Max(depthMax, depth);
+			depthSum += depth;
 
 			if (results.IsSolved)
 			{
@@ -182,6 +202,7 @@ public partial class FullSolve : Node
 			}
 			else if (results.HasStats)
 			{
+				hasCorrectness = true;
 				double pctFilled = results.FilledFraction;
 				double pctSolved = results.SolvedFraction;
 				int incorrect = results.IncorrectCells;
@@ -261,6 +282,12 @@ public partial class FullSolve : Node
 		stats.UnsolvedMaxLines = unsolvedMaxLines;
 		stats.UnsolvedSumLines = unsolvedSumLines;
 
+		stats.DepthMin = depthMin;
+		stats.DepthMax = depthMax;
+		stats.DepthSum = depthSum;
+
+		stats.HasCorrectnessStats = hasCorrectness;
+
 		return stats;
 	}
 
@@ -290,41 +317,68 @@ public partial class FullSolve : Node
 		double maxTime = sorted[sorted.Length - 1];
 		double avgTime = times.Average();
 
-		if (!OnlySolved)
+		if (totalRun == 1)
 		{
-			GD.Print($"Solved {totalSolved} of {totalRun} puzzles");
-			GD.Print($"Solved Puzzles:[\n{string.Join("\n", stats.SolvedPuzzles.Where(p => p > 0))}]");
+			// single puzzle: report its own numbers directly rather than min/max/avg ranges
+			bool solved = totalSolved == 1;
+			int lines = solved ? stats.SolvedMaxLines : stats.UnsolvedMaxLines;
+
+			GD.Print(solved ? "\nSolved!" : "\nNot solved");
+
+			if (times.Length > 1)
+				GD.Print($"Solve time over {times.Length} runs (microsecs): min={minTime:F1}  median={medianTime:F1}  max={maxTime:F1}  avg={avgTime:F1}");
+			else
+				GD.Print($"Solve time: {medianTime:F1} microsecs");
+
+			GD.Print($"Lines processed: {lines}");
+			GD.Print($"Search depth reached: {stats.DepthMax}");
+
+			if (!solved && stats.HasCorrectnessStats)
+			{
+				GD.Print($"Correctly filled cells: {stats.MaxCorFillPct * 100:F2}%");
+				GD.Print($"Correct cells: {stats.MaxSolPct * 100:F2}%");
+			}
 		}
-
-		if (times.Length > 1)
-			GD.Print($"\nSolve time over {times.Length} runs (microsecs): min={minTime:F1}  median={medianTime:F1}  max={maxTime:F1}  avg={avgTime:F1}");
 		else
-			GD.Print($"\nTotal Solve Time: {medianTime:F1} microsecs");
-		GD.Print($"Average solve time (median run): {medianTime / totalRun:F2} microsecs");
-
-		if (!OnlySolved)
 		{
-			GD.Print($"\nMin Correctly Filled Cells: {stats.MinCorFillPct * 100:F2}%, Puzzle - {stats.MinCorFillPuzzle}");
-			GD.Print($"Max Correctly Filled Cells: {stats.MaxCorFillPct * 100:F2}%, Puzzle - {stats.MaxCorFillPuzzle}");
-			GD.Print($"Average Correctly Filled Cells: {stats.AvgCorFillPct * 100:F2}%");
+			if (!OnlySolved)
+			{
+				GD.Print($"Solved {totalSolved} of {totalRun} puzzles");
+				GD.Print($"Solved Puzzles:[\n{string.Join("\n", stats.SolvedPuzzles.Where(p => p > 0))}]");
+			}
 
-			GD.Print($"\nMin Correct Cells: {stats.MinSolPct * 100:F2}%, Puzzle - {stats.MinSolPuzzle}");
-			GD.Print($"Max Correct Cells: {stats.MaxSolPct * 100:F2}%, Puzzle - {stats.MaxSolPuzzle}");
-			GD.Print($"Average Correct Cells: {stats.AvgSolPct * 100:F2}%");
+			if (times.Length > 1)
+				GD.Print($"\nSolve time over {times.Length} runs (microsecs): min={minTime:F1}  median={medianTime:F1}  max={maxTime:F1}  avg={avgTime:F1}");
+			else
+				GD.Print($"\nTotal Solve Time: {medianTime:F1} microsecs");
+			GD.Print($"Average solve time (median run): {medianTime / totalRun:F2} microsecs");
 
-			GD.Print($"\nMin Incorrect Cells: {(long)stats.MinDiff}/{totalCells}");
-			GD.Print($"Max Incorrect Cells: {(long)stats.MaxDiff}/{totalCells}");
-			GD.Print($"Average Incorrect Cells: {(long)stats.AvgDiff}/{totalCells}");
+			if (!OnlySolved && unsolvedRun > 0)
+			{
+				GD.Print($"\nMin Correctly Filled Cells: {stats.MinCorFillPct * 100:F2}%, Puzzle - {stats.MinCorFillPuzzle}");
+				GD.Print($"Max Correctly Filled Cells: {stats.MaxCorFillPct * 100:F2}%, Puzzle - {stats.MaxCorFillPuzzle}");
+				GD.Print($"Average Correctly Filled Cells: {stats.AvgCorFillPct * 100:F2}%");
+
+				GD.Print($"\nMin Correct Cells: {stats.MinSolPct * 100:F2}%, Puzzle - {stats.MinSolPuzzle}");
+				GD.Print($"Max Correct Cells: {stats.MaxSolPct * 100:F2}%, Puzzle - {stats.MaxSolPuzzle}");
+				GD.Print($"Average Correct Cells: {stats.AvgSolPct * 100:F2}%");
+
+				GD.Print($"\nMin Incorrect Cells: {(long)stats.MinDiff}/{totalCells}");
+				GD.Print($"Max Incorrect Cells: {(long)stats.MaxDiff}/{totalCells}");
+				GD.Print($"Average Incorrect Cells: {(long)stats.AvgDiff}/{totalCells}");
+			}
+
+			if (totalSolved > 0)
+				GD.Print($"\nLines processed (solved): min={stats.SolvedMinLines}  max={stats.SolvedMaxLines}  avg={(double)stats.SolvedSumLines / totalSolved:F1}");
+			else
+				GD.Print("\nLines processed (solved): n/a (none solved)");
+			if (unsolvedRun > 0)
+				GD.Print($"Lines processed (unsolved): min={stats.UnsolvedMinLines}  max={stats.UnsolvedMaxLines}  avg={(double)stats.UnsolvedSumLines / unsolvedRun:F1}");
+			else
+				GD.Print("Lines processed (unsolved): n/a (all solved)");
+
+			GD.Print($"\nSearch depth reached: min={stats.DepthMin}  max={stats.DepthMax}  avg={(double)stats.DepthSum / totalRun:F2}");
 		}
-
-		if (totalSolved > 0)
-			GD.Print($"\nLines processed (solved): min={stats.SolvedMinLines}  max={stats.SolvedMaxLines}  avg={(double)stats.SolvedSumLines / totalSolved:F1}");
-		else
-			GD.Print("\nLines processed (solved): n/a (none solved)");
-		if (unsolvedRun > 0)
-			GD.Print($"Lines processed (unsolved): min={stats.UnsolvedMinLines}  max={stats.UnsolvedMaxLines}  avg={(double)stats.UnsolvedSumLines / unsolvedRun:F1}");
-		else
-			GD.Print("Lines processed (unsolved): n/a (all solved)");
 
 		using FileAccess dataFile = FileAccess.Open(DataFilePath, FileAccess.ModeFlags.ReadWrite);
 		if (dataFile != null)
@@ -336,27 +390,30 @@ public partial class FullSolve : Node
 			// min/max/avg lines processed (solved), min/max/avg lines processed (unsolved)
 			string line = string.Format(
 				CultureInfo.InvariantCulture,
-				"{0},{1},{2},{3},{4:F2},{5:F5},{6:F5},{7:F5},{8:F5},{9:F5},{10:F5},{11},{12},{13},{14},{15},{16:F1},{17},{18},{19:F1}",
+				"{0},{1},{2},{3},{4:F2},{5:F5},{6:F5},{7:F5},{8:F5},{9:F5},{10:F5},{11},{12},{13},{14},{15},{16:F1},{17},{18},{19:F1},{20},{21},{22:F2}",
 				DateTime.Now.ToString("s"),
 				totalRun,
 				totalSolved,
 				(long)medianTime,
 				medianTime / totalRun,
-				!OnlySolved ? stats.MinCorFillPct : -1,
-				!OnlySolved ? stats.MaxCorFillPct : -1,
-				!OnlySolved ? stats.AvgCorFillPct : -1,
-				!OnlySolved ? stats.MinSolPct : -1,
-				!OnlySolved ? stats.MaxSolPct : -1,
-				!OnlySolved ? stats.AvgSolPct : -1,
-				!OnlySolved ? (long)stats.MinDiff : -1,
-				!OnlySolved ? (long)stats.MaxDiff : -1,
-				!OnlySolved ? (long)stats.AvgDiff : -1,
+				!OnlySolved && unsolvedRun > 0 ? stats.MinCorFillPct : -1,
+				!OnlySolved && unsolvedRun > 0 ? stats.MaxCorFillPct : -1,
+				!OnlySolved && unsolvedRun > 0 ? stats.AvgCorFillPct : -1,
+				!OnlySolved && unsolvedRun > 0 ? stats.MinSolPct : -1,
+				!OnlySolved && unsolvedRun > 0 ? stats.MaxSolPct : -1,
+				!OnlySolved && unsolvedRun > 0 ? stats.AvgSolPct : -1,
+				!OnlySolved && unsolvedRun > 0 ? (long)stats.MinDiff : -1,
+				!OnlySolved && unsolvedRun > 0 ? (long)stats.MaxDiff : -1,
+				!OnlySolved && unsolvedRun > 0 ? (long)stats.AvgDiff : -1,
 				stats.SolvedMinLines,
 				stats.SolvedMaxLines,
 				(double)stats.SolvedSumLines / totalSolved,
-				!OnlySolved ? stats.UnsolvedMinLines : -1,
-				!OnlySolved ? stats.UnsolvedMaxLines : -1,
-				!OnlySolved ? (double)stats.UnsolvedSumLines / unsolvedRun : -1);
+				!OnlySolved && unsolvedRun > 0 ? stats.UnsolvedMinLines : -1,
+				!OnlySolved && unsolvedRun > 0 ? stats.UnsolvedMaxLines : -1,
+				!OnlySolved && unsolvedRun > 0 ? (double)stats.UnsolvedSumLines / unsolvedRun : -1,
+				stats.DepthMin,
+				stats.DepthMax,
+                (double)stats.DepthSum / totalRun);
 			dataFile.StoreLine(line);
 		}
 		else
@@ -389,5 +446,10 @@ public partial class FullSolve : Node
 		public long SolvedSumLines;
 		public int UnsolvedMinLines, UnsolvedMaxLines;
 		public long UnsolvedSumLines;
+
+		public int DepthMin, DepthMax;
+		public long DepthSum;
+
+		public bool HasCorrectnessStats;
 	}
 }

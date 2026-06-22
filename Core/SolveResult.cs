@@ -16,6 +16,13 @@ public struct SolveResult
 	public bool IsSolved;
 
 	/// <summary>
+	/// Search depth reached: 0 if solved by line propagation alone (no guessing), otherwise the
+	/// iterative-deepening limit at which a solution was found — or the max search depth if the search
+	/// gave up without solving.
+	/// </summary>
+	public int DepthReached;
+
+	/// <summary>
 	/// True when <see cref="FilledFraction"/>/<see cref="SolvedFraction"/>/<see cref="IncorrectCells"/>
 	/// are populated — i.e. the puzzle was not solved but has a known solution to score against.
 	/// </summary>

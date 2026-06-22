@@ -10,10 +10,24 @@ namespace PiXolver.Core;
 /// </summary>
 public partial class Solver
 {
+	/// <summary>
+	/// Maximum guess depth for the backtracking search. Iterative deepening tries limits 1..this and
+	/// stops at the first depth that solves the puzzle. Larger values solve more puzzles, but cost grows
+	/// roughly exponentially with depth; 0 disables search entirely (line propagation only).
+	/// </summary>
+	public int MaxSearchDepth { get; set; } = 10;
+
 	private SolverData _tracker;
 
 	// number of lines processed (Try calls / queue pops) during the current Run; reset at each Run
 	private int _linesProcessed;
+
+	// set when a line solve finds the current cells admit no valid clue arrangement (a contradiction);
+	// RunWorklist checks it to abort propagation. Reset at the start of each RunWorklist call.
+	private bool _contradiction;
+
+	// reusable checkpoints for the backtracking search, indexed by recursion depth
+	private readonly List<Checkpoint> _checkpoints = new();
 
 	public void Init(int inGridSize)
 	{
@@ -34,9 +48,15 @@ public partial class Solver
 	{
 		long runStart = Stopwatch.GetTimestamp();
 		_linesProcessed = 0;
+		_checkpoints.Clear();
 
-		// propagate constraints via the worklist until it drains (fixpoint) or the puzzle is solved
-		RunWorklist(puzzle);
+		// Line-propagate to a fixpoint; if that doesn't fully decide the grid, fall back to iterative-
+		// deepening search to complete it. `ok` is false only if the puzzle is already contradictory, or
+		// the search gave up at MaxSearchDepth without finding a solution.
+		bool ok = RunWorklist(puzzle);
+		int depthReached = 0;
+		if (ok && !puzzle.IsFullyDecided())
+			ok = RunSearch(puzzle, out depthReached);
 
 		double elapsedMicroseconds = Stopwatch.GetElapsedTime(runStart).TotalMicroseconds;
 
@@ -44,9 +64,10 @@ public partial class Solver
 		{
 			LinesProcessed = _linesProcessed,
 			TimeMicroseconds = elapsedMicroseconds,
+			DepthReached = depthReached,
 		};
 
-		if (puzzle.IsSolved())
+		if (ok && puzzle.IsFullyDecided())
 		{
 			result.IsSolved = true;
 		}
@@ -120,8 +141,10 @@ public partial class Solver
 	/// queue is guaranteed to drain: the run ends at the propagation fixpoint (empty queue) or when the
 	/// puzzle is solved. Propagation is confluent, so the order only affects speed, never the result.
 	/// </summary>
-	private void RunWorklist(Puzzle puzzle)
+	private bool RunWorklist(Puzzle puzzle)
 	{
+		_contradiction = false;
+
 		int gridSize = puzzle.GridSize;
 		// line ids: 0..gridSize-1 are rows, gridSize..2*gridSize-1 are columns
 		int lineCount = 2 * gridSize;
@@ -166,6 +189,8 @@ public partial class Solver
 			uint beforeMarked = puzzle.GetMarkedCells(index, fillDirection, 0, gridSize);
 
 			uint changed = Try(puzzle, index, clues, iterationDirection, fillDirection, beforeFilled, beforeMarked);
+			if (_contradiction)
+				return false;
 			if (changed == 0)
 				continue;
 
@@ -194,6 +219,80 @@ public partial class Solver
 			if (_tracker.AllRowsSolved)
 				break;
 		}
+
+		return true;
+	}
+
+	/// <summary>
+	/// Iterative-deepening driver: tries depth-limited searches at increasing guess limits (1, 2, …,
+	/// <see cref="MaxSearchDepth"/>) and stops at the first that solves the puzzle. Reports the limit
+	/// that succeeded via <paramref name="depthReached"/>, or <see cref="MaxSearchDepth"/> if it gave up.
+	/// </summary>
+	private bool RunSearch(Puzzle puzzle, out int depthReached)
+	{
+		for (int limit = 1; limit <= MaxSearchDepth; limit++)
+		{
+			if (Search(puzzle, 0, limit))
+			{
+				depthReached = limit;
+				return true;
+			}
+		}
+
+		depthReached = MaxSearchDepth;
+		return false;
+	}
+
+	/// <summary>
+	/// Depth-limited backtracking search: assume a value for an undecided cell, propagate, and recurse;
+	/// on contradiction or dead end, restore and try the other value. Stops descending once
+	/// <paramref name="depth"/> reaches <paramref name="limit"/>. Returns true once the grid is completed
+	/// into a valid solution. Uses the line worklist as the per-node propagator.
+	/// </summary>
+	private bool Search(Puzzle puzzle, int depth, int limit)
+	{
+		if (!puzzle.TryFindUndecidedCell(out int x, out int y))
+			return true; // fully decided after a contradiction-free propagation => a valid solution
+		if (depth >= limit)
+			return false; // hit the depth cap for this iteration; can't guess any deeper
+
+		Checkpoint cp = GetCheckpoint(puzzle, depth);
+		puzzle.CaptureInto(cp.Puzzle);
+		_tracker.CaptureInto(cp.Tracker);
+
+		// branch 1: assume the cell is filled
+		puzzle.SetCellFilled(x, y);
+		if (RunWorklist(puzzle) && Search(puzzle, depth + 1, limit))
+			return true;
+		puzzle.RestoreFrom(cp.Puzzle);
+		_tracker.RestoreFrom(cp.Tracker);
+
+		// branch 2: assume the cell is empty
+		puzzle.MarkCellEmpty(x, y);
+		if (RunWorklist(puzzle) && Search(puzzle, depth + 1, limit))
+			return true;
+		puzzle.RestoreFrom(cp.Puzzle);
+		_tracker.RestoreFrom(cp.Tracker);
+
+		return false; // neither value works => this branch is a dead end
+	}
+
+	/// <summary>A reusable checkpoint (one per search depth) of the grid and solved-line state.</summary>
+	private Checkpoint GetCheckpoint(Puzzle puzzle, int depth)
+	{
+		while (_checkpoints.Count <= depth)
+			_checkpoints.Add(new Checkpoint
+			{
+				Puzzle = puzzle.CreateSnapshot(),
+				Tracker = _tracker.CreateSnapshot(),
+			});
+		return _checkpoints[depth];
+	}
+
+	private sealed class Checkpoint
+	{
+		public Puzzle.Snapshot Puzzle;
+		public SolverData.TrackerSnapshot Tracker;
 	}
 
 	#region "Private" solver functions
@@ -234,7 +333,12 @@ public partial class Solver
 
 		DPLineSolver lineSolver = _tracker.GetLineSolver(iterationDirection, index);
 		lineSolver.Configure(filledCells, markedCells, clues);
-		lineSolver.DeduceComplete(out uint forcedFilled, out uint forcedEmpty, out uint solvedClues);
+		if (!lineSolver.DeduceComplete(out uint forcedFilled, out uint forcedEmpty, out uint solvedClues))
+		{
+			// the line admits no valid arrangement given the current cells — a contradiction
+			_contradiction = true;
+			return 0;
+		}
 		puzzle.FillLine(index, fillDirection, forcedFilled);
 		puzzle.SetEmptyCells(index, fillDirection, forcedEmpty);
 
@@ -380,6 +484,35 @@ public partial class Solver
 			{
 				_solvedColumns[index] = true;
 			}
+		}
+
+		// --- Checkpoint/restore of the solved-line state for the backtracking search ---
+
+		public sealed class TrackerSnapshot
+		{
+			public bool[] Rows;
+			public bool[] Columns;
+			public int RowCount;
+		}
+
+		public TrackerSnapshot CreateSnapshot() => new()
+		{
+			Rows = new bool[gridSize],
+			Columns = new bool[gridSize],
+		};
+
+		public void CaptureInto(TrackerSnapshot s)
+		{
+			Array.Copy(_solvedRows, s.Rows, gridSize);
+			Array.Copy(_solvedColumns, s.Columns, gridSize);
+			s.RowCount = _solvedRowCount;
+		}
+
+		public void RestoreFrom(TrackerSnapshot s)
+		{
+			Array.Copy(s.Rows, _solvedRows, gridSize);
+			Array.Copy(s.Columns, _solvedColumns, gridSize);
+			_solvedRowCount = s.RowCount;
 		}
 	}
 

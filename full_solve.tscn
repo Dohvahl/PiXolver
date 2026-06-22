@@ -6,6 +6,6 @@
 [node name="FullSolve" type="Node" unique_id=688364892]
 script = ExtResource("1_ssq6r")
 MaxPuzzles = 5000
-OnlySolved = true
 SolverScene = ExtResource("2_5fay3")
-BenchmarkRuns = 1000
+BenchmarkRuns = 0
+MaxSearchDepth = 5
