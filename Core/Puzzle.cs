@@ -35,6 +35,10 @@ public partial class Puzzle
 	private uint[] _solutionRowFilled = Array.Empty<uint>();
 	private uint[] _solutionColumnFilled = Array.Empty<uint>();
 
+	// scratch for the search's branch-cell heuristic: undecided-cell counts per row/column
+	private int[] _rowUndecided;
+	private int[] _colUndecided;
+
 	// Derived clue metadata for the top/left of the puzzle.
 	private ClueLine[] _rowClues;
 	private ClueLine[] _columnClues;
@@ -412,20 +416,80 @@ public partial class Puzzle
 		return true;
 	}
 
-	/// <summary>Finds the first undecided (empty) cell. Returns false if the grid is fully decided.</summary>
-	internal bool TryFindUndecidedCell(out int x, out int y)
+	/// <summary>
+	/// Picks an undecided cell for the search to branch on, using a most-constrained heuristic: the cell
+	/// sits in the row or column with the fewest remaining undecided cells, so a guess there is most
+	/// likely to cascade or contradict quickly. Returns false if the grid is fully decided.
+	/// </summary>
+	internal bool TryFindBranchCell(out int x, out int y)
 	{
+		if (_rowUndecided == null || _rowUndecided.Length != GridSize)
+		{
+			_rowUndecided = new int[GridSize];
+			_colUndecided = new int[GridSize];
+		}
+		Array.Clear(_rowUndecided, 0, GridSize);
+		Array.Clear(_colUndecided, 0, GridSize);
+
+		bool any = false;
 		for (int yy = 0; yy < GridSize; yy++)
 			for (int xx = 0; xx < GridSize; xx++)
 				if (_grid[xx, yy] == CellState.Empty)
 				{
+					_rowUndecided[yy]++;
+					_colUndecided[xx]++;
+					any = true;
+				}
+
+		if (!any)
+		{
+			x = -1;
+			y = -1;
+			return false;
+		}
+
+		// most-constrained line = the row/column with the fewest (but non-zero) undecided cells
+		int bestRow = -1, bestRowCount = int.MaxValue;
+		int bestCol = -1, bestColCount = int.MaxValue;
+		for (int i = 0; i < GridSize; i++)
+		{
+			if (_rowUndecided[i] > 0 && _rowUndecided[i] < bestRowCount)
+			{
+				bestRowCount = _rowUndecided[i];
+				bestRow = i;
+			}
+			if (_colUndecided[i] > 0 && _colUndecided[i] < bestColCount)
+			{
+				bestColCount = _colUndecided[i];
+				bestCol = i;
+			}
+		}
+
+		// branch within whichever of the two tightest lines is more constrained, taking its first cell
+		if (bestRowCount <= bestColCount)
+		{
+			y = bestRow;
+			for (int xx = 0; xx < GridSize; xx++)
+				if (_grid[xx, bestRow] == CellState.Empty)
+				{
 					x = xx;
+					return true;
+				}
+		}
+		else
+		{
+			x = bestCol;
+			for (int yy = 0; yy < GridSize; yy++)
+				if (_grid[bestCol, yy] == CellState.Empty)
+				{
 					y = yy;
 					return true;
 				}
+		}
+
 		x = -1;
 		y = -1;
-		return false;
+		return false; // unreachable: `any` guarantees an undecided cell in the chosen line
 	}
 
 	/// <summary>Opaque grid + clue-solved snapshot for the search's checkpoint/restore (CellState is private).</summary>

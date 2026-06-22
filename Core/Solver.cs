@@ -29,6 +29,10 @@ public partial class Solver
 	// reusable checkpoints for the backtracking search, indexed by recursion depth
 	private readonly List<Checkpoint> _checkpoints = new();
 
+	// reusable worklist ring buffer (+ dedup flags), shared by every propagation run
+	private int[] _queue = Array.Empty<int>();
+	private bool[] _queued = Array.Empty<bool>();
+
 	public void Init(int inGridSize)
 	{
 		_tracker = new SolverData();
@@ -135,41 +139,64 @@ public partial class Solver
 	}
 
 	/// <summary>
-	/// AC-3-style constraint-propagation worklist. Seeds a FIFO queue with every row and column, then
-	/// pops a line, runs the line solver on it, and enqueues the perpendicular line through each cell
-	/// it newly fills or marks. Solved lines are never re-enqueued. Cells only ever get added, so the
-	/// queue is guaranteed to drain: the run ends at the propagation fixpoint (empty queue) or when the
-	/// puzzle is solved. Propagation is confluent, so the order only affects speed, never the result.
+	/// AC-3-style constraint-propagation worklist seeded with every row and column. Pops a line, runs the
+	/// line solver, and enqueues the perpendicular line through each newly determined cell. Returns false
+	/// on a contradiction, true at the propagation fixpoint (or once the puzzle is solved). Propagation is
+	/// confluent, so order only affects speed, never the result.
 	/// </summary>
 	private bool RunWorklist(Puzzle puzzle)
 	{
-		_contradiction = false;
-
 		int gridSize = puzzle.GridSize;
 		// line ids: 0..gridSize-1 are rows, gridSize..2*gridSize-1 are columns
 		int lineCount = 2 * gridSize;
-
-		// With per-line dedup a line is queued at most once, so a ring buffer of lineCount slots holds
-		// the whole queue; `queued` is the membership flag that enforces the dedup (and bounds size).
-		int[] queue = new int[lineCount];
-		bool[] queued = new bool[lineCount];
-		int head = 0;
-		int tail = 0;
-		int size = lineCount;
+		PrepareQueue(lineCount);
 
 		// seed every row and column
 		for (int id = 0; id < lineCount; id++)
 		{
-			queue[id] = id;
-			queued[id] = true;
+			_queue[id] = id;
+			_queued[id] = true;
 		}
+
+		// head=0, tail=0, size=lineCount is the "full ring" state (tail == (head + size) mod lineCount)
+		return DrainQueue(puzzle, gridSize, lineCount, head: 0, tail: 0, size: lineCount);
+	}
+
+	/// <summary>
+	/// Worklist seeded with just the row and column through cell (x, y) — used after the search changes a
+	/// single cell. The rest of the grid is already at a fixpoint, so only those two lines can yield new
+	/// deductions and propagation cascades from them. Returns false on a contradiction.
+	/// </summary>
+	private bool RunWorklistFrom(Puzzle puzzle, int x, int y)
+	{
+		int gridSize = puzzle.GridSize;
+		int lineCount = 2 * gridSize;
+		PrepareQueue(lineCount);
+
+		int rowId = y;            // row through (x, y)
+		int colId = gridSize + x; // column through (x, y)
+		_queue[0] = rowId;
+		_queue[1] = colId;
+		_queued[rowId] = true;
+		_queued[colId] = true;
+
+		return DrainQueue(puzzle, gridSize, lineCount, head: 0, tail: 2, size: 2);
+	}
+
+	/// <summary>
+	/// Drains the seeded worklist to a fixpoint: pop a line, run the line solver, and enqueue the
+	/// perpendicular line through each newly determined cell. Returns false on a contradiction.
+	/// </summary>
+	private bool DrainQueue(Puzzle puzzle, int gridSize, int lineCount, int head, int tail, int size)
+	{
+		_contradiction = false;
 
 		while (size > 0)
 		{
-			int id = queue[head];
+			int id = _queue[head];
 			head = head + 1 == lineCount ? 0 : head + 1;
 			size -= 1;
-			queued[id] = false;
+			_queued[id] = false;
 
 			bool isRow = id < gridSize;
 			int index = isRow ? id : id - gridSize;
@@ -207,10 +234,10 @@ public partial class Solver
 					continue;
 
 				int perpId = isRow ? gridSize + p : p;
-				if (!queued[perpId])
+				if (!_queued[perpId])
 				{
-					queued[perpId] = true;
-					queue[tail] = perpId;
+					_queued[perpId] = true;
+					_queue[tail] = perpId;
 					tail = tail + 1 == lineCount ? 0 : tail + 1;
 					size += 1;
 				}
@@ -221,6 +248,20 @@ public partial class Solver
 		}
 
 		return true;
+	}
+
+	/// <summary>Ensures the worklist buffers fit lineCount slots and clears the dedup flags for this run.</summary>
+	private void PrepareQueue(int lineCount)
+	{
+		if (_queue.Length < lineCount)
+		{
+			_queue = new int[lineCount];
+			_queued = new bool[lineCount];
+		}
+		else
+		{
+			Array.Clear(_queued, 0, lineCount);
+		}
 	}
 
 	/// <summary>
@@ -251,7 +292,7 @@ public partial class Solver
 	/// </summary>
 	private bool Search(Puzzle puzzle, int depth, int limit)
 	{
-		if (!puzzle.TryFindUndecidedCell(out int x, out int y))
+		if (!puzzle.TryFindBranchCell(out int x, out int y))
 			return true; // fully decided after a contradiction-free propagation => a valid solution
 		if (depth >= limit)
 			return false; // hit the depth cap for this iteration; can't guess any deeper
@@ -260,16 +301,17 @@ public partial class Solver
 		puzzle.CaptureInto(cp.Puzzle);
 		_tracker.CaptureInto(cp.Tracker);
 
-		// branch 1: assume the cell is filled
+		// branch 1: assume the cell is filled. Only the row/column through (x, y) can yield new
+		// deductions (the rest of the grid is already at a fixpoint), so seed propagation from there.
 		puzzle.SetCellFilled(x, y);
-		if (RunWorklist(puzzle) && Search(puzzle, depth + 1, limit))
+		if (RunWorklistFrom(puzzle, x, y) && Search(puzzle, depth + 1, limit))
 			return true;
 		puzzle.RestoreFrom(cp.Puzzle);
 		_tracker.RestoreFrom(cp.Tracker);
 
 		// branch 2: assume the cell is empty
 		puzzle.MarkCellEmpty(x, y);
-		if (RunWorklist(puzzle) && Search(puzzle, depth + 1, limit))
+		if (RunWorklistFrom(puzzle, x, y) && Search(puzzle, depth + 1, limit))
 			return true;
 		puzzle.RestoreFrom(cp.Puzzle);
 		_tracker.RestoreFrom(cp.Tracker);
