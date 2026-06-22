@@ -3,6 +3,7 @@ using System;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 using Core = PiXolver.Core;
 
 /// <summary>
@@ -148,23 +149,34 @@ public partial class FullSolve : Node
 		bool hasCorrectness = false;
 
 		long startTime = Stopwatch.GetTimestamp();
+
+		// Phase 1: solve every puzzle in parallel. Each puzzle is independent and the Core solver carries
+		// no Godot dependency (and no shared mutable state), so worker threads are safe; each result lands
+		// in its own array slot, so there's no contention.
+		var solveResults = new Core.SolveResult[samplePuzzles.Length];
+		Parallel.For(0, samplePuzzles.Length, i =>
+		{
+			Core.Puzzle p = samplePuzzles[i];
+			if (p == null)
+				return;
+
+			p.Reset(); // start from a clean grid so repeated runs each do the full work
+			var solver = new Core.Solver();
+			solver.Init(p.GridSize);
+			solver.MaxSearchDepth = MaxSearchDepth;
+			solveResults[i] = solver.Run(p);
+		});
+
+		double elapsedMicroseconds = Stopwatch.GetElapsedTime(startTime).TotalMicroseconds;
+
+		// Phase 2: aggregate the results sequentially (deterministic, no threading concerns)
 		for (int puzzleIndex = 0; puzzleIndex < samplePuzzles.Length; puzzleIndex++)
 		{
 			Core.Puzzle puzzle = samplePuzzles[puzzleIndex];
 			if (puzzle == null)
 				continue;
 
-			// start from a clean grid so repeated runs each do the full work
-			puzzle.Reset();
-
-            // set up the solver
-            var solver = new Core.Solver();
-			solver.Init(puzzle.GridSize);
-			solver.MaxSearchDepth = MaxSearchDepth;
-
-			//GD.Print($"Solving puzzle {puzzleIndex + 1}/{samplePuzzles.Length} ({puzzle.PuzzleFile})...");
-
-            Core.SolveResult results = solver.Run(puzzle);
+			Core.SolveResult results = solveResults[puzzleIndex];
 
 			int linesProcessed = results.LinesProcessed;
 			if (results.IsSolved)
@@ -241,7 +253,6 @@ public partial class FullSolve : Node
 
 			totalRun += 1;
 		}
-		double elapsedMicroseconds = Stopwatch.GetElapsedTime(startTime).TotalMicroseconds;
 
 		var stats = new RunStats
 		{
